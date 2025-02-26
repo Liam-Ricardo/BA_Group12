@@ -3,19 +3,116 @@ title: "BA Assignment Group 12"
 output: html_document
 date: "2025-02-17"
 ---
+#what is our business problem?
+proposals:
+1. Predicting Video Trendiness: Identify factors that contribute to a video's likelihood of trending on YouTube. Businesses and content creators could use this to optimize their video content and publishing strategies.
+
+2. Understanding Regional Content Preferences: Analyze differences in trending videos across different countries. This could help businesses tailor their content to specific regions and expand their global reach.
+
+3. Optimizing Video Engagement: Determine which video characteristics (e.g., title length, tags, description sentiment) correlate with higher engagement metrics (e.g., views, likes, comments). Businesses could use this to improve audience engagement and retention.
+
+4. Competitive Analysis: Analyze trending videos within a specific niche or industry to understand what types of content are performing well and identify potential opportunities for differentiation.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+# Define the dataset name
+#dataset_name <- "asaniczka/trending-youtube-videos-113-countries"
+
+# Define the destination path (optional)
+#destination_path <- "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12"
+
+# Run the Kaggle API command
+#system(paste("kaggle datasets download -d", dataset_name, "-p", destination_path, "--unzip"))
+
+# Confirm download
+#print(paste("Dataset downloaded to:", destination_path))
+
+#list.files(destination_path, pattern = "\\.zip$")
+#unzip(paste0(destination_path, "/"), exdir = destination_path)
+
+
+```
+Now we have loaded and downloaded the most recent dataset from Kaggle.
+
+Let's do an Exploratory Data Analysis!
+
+```{r}
+
+#if we use Kaggle API lets update this part!
+destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
+
+df <- read.csv(destination_path)
+
 ```
 
-## R Markdown
+```{r}
+#view the first rows
+#head(df)
+#some math numbers/insights
+#var(df$daily_rank)
+#summary(df)
+#str(df)
+dim(df)
+#is.na(df)
+#no empty values found
+count(df["NA"])
+```
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+#Questions n.a.v. EDA
+1. why is df$daily_rank different ranking? multiple top 1, 2, 3 etc 
+--> each country has their unique ranking, so we should combine df[daily_rank] with df[country] to make assumptions per country
+
+2. What is our output variable?
+--> could be daily_rank, view_count, or weekly_movement/daily_movement (if focus on rapidly getting trendy)
+
+3.Should we normalize our data? all or some columns? 
+
+
 
 ```{r cars}
-summary(cars)
+
+```
+```{r}
+#Principal Component Analysis
+df$daily_rank
+df$view_count
+df <-prcomp(df[,c("daily_rank","view_count")])
+cbind(head(df$daily_rank),head(df))
+```
+##webscraping
+Lets add webscraping to get the exact comments!
+```{r}
+#install.packages(c("rvest", "httr"))
+
+# call on libraries to use
+library(rvest)
+library(httr)
+
+scrape_youtube_comments <- function(video_id) {
+  tryCatch({ 
+    url <- paste0("https://www.youtube.com/watch?v=", video_id)
+    # Use httr::GET to set the User-Agent
+    page <- httr::GET(url, user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36") %>%
+      read_html()  # Parse the HTML
+
+    comments <- page %>%
+      html_nodes("#content-text") %>%  # Double-check this selector!
+      html_text()
+
+    return(paste(comments, collapse = "\n")) # Combine comments into one string
+
+  }, error = function(e) {
+    cat("Error scraping video", video_id, ":", conditionMessage(e), "\n")
+    return(NA)  # Return NA if there's an error
+  })
+ Sys.sleep(1)
+}
+
+# Adding the scraping data to our dataset 'df' by scraping for each youtube video with column 'video_id'
+df$comments <- lapply(df$video_id, scrape_youtube_comments)
+
 ```
 
 ## Including Plots
@@ -25,5 +122,10 @@ You can also embed plots, for example:
 ```{r pressure, echo=FALSE}
 plot(pressure)
 ```
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
