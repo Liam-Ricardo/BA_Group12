@@ -31,6 +31,11 @@ knitr::opts_chunk$set(echo = TRUE)
 #list.files(destination_path, pattern = "\\.zip$")
 #unzip(paste0(destination_path, "/"), exdir = destination_path)
 
+#if we use Kaggle API lets update this part!
+
+destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
+
+df <- read.csv(destination_path)
 
 ```
 Now we have loaded and downloaded the most recent dataset from Kaggle.
@@ -38,11 +43,8 @@ Now we have loaded and downloaded the most recent dataset from Kaggle.
 Let's do an Exploratory Data Analysis!
 
 ```{r}
+install.packages("dplyr")
 
-#if we use Kaggle API lets update this part!
-destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
-
-df <- read.csv(destination_path)
 
 ```
 
@@ -56,9 +58,25 @@ df <- read.csv(destination_path)
 dim(df)
 #is.na(df)
 #no empty values found
-count(df["NA"])
-```
+#count(df["NA"])
 
+#group the dataset per country
+library(dplyr)
+grouped_df <- df%>% group_by(country)
+country_counts <- grouped_df%>% summarise(count = n())
+print(mean(country_counts$count))
+
+#ungrouping
+df_ungrouped <- grouped_df %>% ungroup()
+
+```
+#Insights
+- dimensioning before grouping is 2743099 Rows, 18 Columns
+- ''language'' column seems to have empty values+different type of values e.g.: "zh-TW", or "ja",or "en-US"
+- 'video-tags'column has alot of empty values
+- 'description'column has alot of empty values
+- from grouping it follows that we have 113 Countries with an average of 24275.21 instances
+- the ranking seems to be per country? so we have multiple top 5 etc
 
 #Questions n.a.v. EDA
 1. why is df$daily_rank different ranking? multiple top 1, 2, 3 etc 
@@ -84,34 +102,6 @@ cbind(head(df$daily_rank),head(df))
 ##webscraping
 Lets add webscraping to get the exact comments!
 ```{r}
-#install.packages(c("rvest", "httr"))
-
-# call on libraries to use
-library(rvest)
-library(httr)
-
-scrape_youtube_comments <- function(video_id) {
-  tryCatch({ 
-    url <- paste0("https://www.youtube.com/watch?v=", video_id)
-    # Use httr::GET to set the User-Agent
-    page <- httr::GET(url, user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36") %>%
-      read_html()  # Parse the HTML
-
-    comments <- page %>%
-      html_nodes("#content-text") %>%  # Double-check this selector!
-      html_text()
-
-    return(paste(comments, collapse = "\n")) # Combine comments into one string
-
-  }, error = function(e) {
-    cat("Error scraping video", video_id, ":", conditionMessage(e), "\n")
-    return(NA)  # Return NA if there's an error
-  })
- Sys.sleep(1)
-}
-
-# Adding the scraping data to our dataset 'df' by scraping for each youtube video with column 'video_id'
-df$comments <- lapply(df$video_id, scrape_youtube_comments)
 
 ```
 
