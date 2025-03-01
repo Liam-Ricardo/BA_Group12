@@ -3,3 +3,201 @@ title: "data_clean"
 output: html_document
 ---
 
+## Data Cleaning
+
+### 1. Importing the required libraries
+
+Only use this cells to import all the required libraries. DO NOT import the libraries in any other cells below, it helps with maintaining the code properly and enhances the readability of the code. If you don't want anyone else to update any imports, please mention that in a **comment** next to it (see the example provided in line 1)
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+```
+
+#### Update this cell before running the notebook
+
+This cell imports the raw data. Since the data is too large for `GitHub` we can only use the data in our local system. So, please make sure you update the `filepath` with your own path before proceeding further in the notebook.
+
+```{r}
+# Update this variable with the your own filepath
+data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries.csv"
+
+#Import dataset
+raw_data <- read.csv(data_filepath)
+```
+
+------------------------------------------------------------------------
+
+### 2. Inspecting the raw data
+
+We are just performing an initial check on the raw data. We do not manipulate any data points here. The main aim is to understand the raw data. First, we will check the structure of the data.
+
+```{r}
+# Structure of the dataset
+str(raw_data)
+```
+
+As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check\* `terminal` \*output for better readability]*
+
+```{r}
+ # Summary statistics
+summary(raw_data)
+```
+
+After we got a glimpse, of what we have in hand in the raw data. Let's visualize it in the table format and soak in the beauty. *[Tip: Use the arrows to navigate to other columns]*
+
+```{r}
+ # First few rows
+head(raw_data)
+```
+
+Now, its time to understand how many rows and columns we have in the raw data. Trust me, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come handy. And post the data pre-processing, it always a good practice to compare the final model training dataset with the raw data.
+
+```{r}
+# Dimensions of the dataset
+dim(raw_data)
+```
+
+**Summary**
+
+1.  We have 2,720,499 rows and 18 columns in our dataset
+
+2.  12 `char` (non-numerical) columns and 6 `int` (numerical) columns
+
+3.  The `int` column seems to be properly formatted (i.e. without any `str` in between)
+
+------------------------------------------------------------------------
+
+### 3. Data Pre-Processing
+
+In this step, we will clean the raw data as much as possible, so that it is EDA ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
+
+^*It's just I like to keep a copy of all the versions of data. So, I'm taking a copy of the raw_data into a new variable called 'cleaned_data' And I will use that moving forward. If you don't prefer that way DO NOT run this cell.*^
+
+```{r}
+cleaned_data <- raw_data
+```
+
+#### 3.1. Standardizing column names and removing duplicate values
+
+Let's define a user-defined function (`udf`) to do the initial cleaning of the dataset.
+
+```{r}
+clean_data <- function(df){
+  
+  # Standardize column names
+  cleaned_data <- df %>% rename_all(tolower) %>% rename_all(str_replace_all, pattern = " ", replacement = "_")
+  
+  # Remove duplicate rows
+  df <- df %>% distinct()
+  
+  return(df)
+}
+```
+
+```{r}
+cleaned_df <- clean_data(cleaned_data)
+
+head(cleaned_df)
+```
+
+As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset, didn't have any duplicate values. So, Yayyy!
+
+#### 3.2. Null value treatment
+
+Now, its time to treat the null values. First, let's define a `udf` to analyse the data and fetch us how many null values are present in each column.
+
+```{r}
+analyze_columns <- function(df) {
+  calculate_mode <- function(x) {
+    unique_x <- unique(na.omit(x))
+    tabulated <- tabulate(match(x, unique_x))
+    unique_x[which.max(tabulated)]
+  }
+  
+  # Create summary statistics for each column
+  summary_table <- data.frame(
+    `column_type` = sapply(df, typeof),
+    `number_of_nulls` = sapply(df, function(x) sum(is.na(x))),
+    `%_nulls` = sapply(df, function(x) round(sum(is.na(x)) / length(x) * 100, 2)),
+    `mean` = sapply(df, function(x) if (is.numeric(x)) round(mean(x, na.rm = TRUE), 2) else 0),
+    `median` = sapply(df, function(x) if (is.numeric(x)) round(median(x, na.rm = TRUE), 2) else 0),
+    `min` = sapply(df, function(x) if (is.numeric(x)) round(min(x, na.rm = TRUE), 2) else 0),
+    `max` = sapply(df, function(x) if (is.numeric(x)) round(max(x, na.rm = TRUE), 2) else 0),
+    `mode` = sapply(df, function(x) if (is.numeric(x) | is.character(x) | is.factor(x)) calculate_mode(x) else "N/A"), stringsAsFactors = FALSE
+    )
+  
+  return(summary_table)
+}
+```
+
+```{r}
+null_df <- analyze_columns(cleaned_df)
+print(null_df)
+```
+
+Surprisingly, the dataset does not contain any null values. We do not have to impute the null values.
+
+#### 3.3. Outlier treatment
+
+Next, we will check for outliers in the numerical column of our dataset. We can do this in 2 different ways. 1 - Visually using box plots and 2nd using the IQR, where we calculate the upper and lower boundary of the column (anything outside this boundary is an outlier). Now, we will just detect if there are any outliers using the 2nd method. *[Note: The visual inspection of outliers will be carried out during the EDA].*
+
+We start by defining a `udf` to give us the report on the outliers based on the IQR calculation of each numerical column.
+
+```{r}
+detect_outliers <- function(df) {
+    numeric_cols <- df %>% select(where(is.numeric))
+    outlier_summary <- data.frame(column = character(), lower_bound = numeric(), upper_bound = numeric(), num_outliers = integer())
+    
+    for (col in colnames(numeric_cols)) {
+      q1 <- quantile(numeric_cols[[col]], 0.25, na.rm = TRUE)
+      q3 <- quantile(numeric_cols[[col]], 0.75, na.rm = TRUE)
+      IQR <- q3 - q1
+      lower_limit <- q1 - 1.5 * IQR
+      upper_limit <- q3 + 1.5 * IQR
+      num_of_outliers <- sum(numeric_cols[[col]] < lower_limit | numeric_cols[[col]] > upper_limit, na.rm = TRUE)
+      outlier_summary <- rbind(outlier_summary, data.frame(column = col, lower_bound = lower_limit, upper_bound = upper_limit, num_outliers = num_of_outliers))
+    }
+    return(outlier_summary)
+  }
+```
+
+```{r}
+outlier_report <- detect_outliers(cleaned_df)
+print(outlier_report)
+```
+
+Seems, like we have quite a lot of outliers in our dataset. We won't treat them now, because we need to investigate it further to understand why this is happening.
+
+### 4. Export the cleaned data
+
+Finally, let's export the cleaned data. So, that we can use a different notebook to perform the EDA. This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
+
+```{r}
+export_data <- function(df, input_filepath){
+  output_filepath <- sub(".csv","_cleaned.csv",input_filepath)
+  write.csv(df, output_filepath, row.names = FALSE)
+}
+
+export_data(cleaned_df, data_filepath)
+```
+
+That brings us to the end of the data cleaning part. Any more cleaning, clustering, merging or separation of the dataset(s) will happen in the next step(s).
+
+```{r}
+## This block removes all the elements from your environment
+# remove(list = ls())
+```
+
+------------------------------------------------------------------------
+
+### Dev Team Journal ;)
+
+> *Here, I'm just trying to get used to the R environment - Honestly, it is a bit annoying rn, but I feel that it will get better - ShR (27th Feb 2025 - 15:01)*
+>
+> *I think I'm getting used to R now, but still Python rules! - ShR (1st March 2025 - 12:09)*
+
+------------------------------------------------------------------------
