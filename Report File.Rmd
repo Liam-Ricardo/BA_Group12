@@ -4,79 +4,270 @@ output: html_document
 date: "2025-02-17"
 ---
 #what is our business problem?
-proposals:
-1. Predicting Video Trendiness: Identify factors that contribute to a video's likelihood of trending on YouTube. Businesses and content creators could use this to optimize their video content and publishing strategies.
+The defined business problem we will focus on for this report is Predicting Video Trendiness: Identify factors that contribute to a video's likelihood of trending on YouTube. Businesses and content creators could use this to optimize their video content and publishing strategies.
 
-2. Understanding Regional Content Preferences: Analyze differences in trending videos across different countries. This could help businesses tailor their content to specific regions and expand their global reach.
+Additionally we would like to combine this with Understanding Regional Content Preferences: Analyze differences in trending videos across different countries. This could help businesses tailor their content to specific regions and expand their global reach.
 
-3. Optimizing Video Engagement: Determine which video characteristics (e.g., title length, tags, description sentiment) correlate with higher engagement metrics (e.g., views, likes, comments). Businesses could use this to improve audience engagement and retention.
-
-4. Competitive Analysis: Analyze trending videos within a specific niche or industry to understand what types of content are performing well and identify potential opportunities for differentiation.
+#Data
+In data_clean.Rmd a first look at the raw data was done and a first cleaning of the data was executed.
+In this file we will continue to work with the cleaned data set which is 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-# Define the dataset name
-#dataset_name <- "asaniczka/trending-youtube-videos-113-countries"
 
-# Define the destination path (optional)
-#destination_path <- "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12"
-
-# Run the Kaggle API command
-#system(paste("kaggle datasets download -d", dataset_name, "-p", destination_path, "--unzip"))
-
-# Confirm download
-#print(paste("Dataset downloaded to:", destination_path))
-
-#list.files(destination_path, pattern = "\\.zip$")
-#unzip(paste0(destination_path, "/"), exdir = destination_path)
-
-#if we use Kaggle API lets update this part!
-
-destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
+destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries_cleaned.csv"
 
 df <- read.csv(destination_path)
 
 ```
-Now we have loaded and downloaded the most recent dataset from Kaggle.
+Now we have loaded the cleaned data set.
 
 Let's do an Exploratory Data Analysis!
-
-```{r}
-install.packages("dplyr")
-
-
-```
 
 ```{r}
 #view the first rows
 #head(df)
 #some math numbers/insights
 #var(df$daily_rank)
-#summary(df)
-#str(df)
-dim(df)
-#is.na(df)
-#no empty values found
-#count(df["NA"])
-
-#group the dataset per country
-library(dplyr)
-grouped_df <- df%>% group_by(country)
-country_counts <- grouped_df%>% summarise(count = n())
-print(mean(country_counts$count))
-
-#ungrouping
-df_ungrouped <- grouped_df %>% ungroup()
-
+summary(df)
+#dim(df)
 ```
-#Insights
+First a clear distinction between the numerical and non-numerical might come handy later.
+```{r}
+# Create a classification of columns as numerical or non-numerical
+column_types <- sapply(df, is.numeric)
+
+# Extract numerical and non-numerical column names
+numerical_columns <- names(column_types[column_types == TRUE])
+non_numerical_columns <- names(column_types[column_types == FALSE])
+
+# Print grouped column names
+cat("Numerical Columns:\n")
+cat(numerical_columns, sep = "\n")
+
+cat("\nNon-Numerical Columns:\n")
+cat(non_numerical_columns, sep = "\n")
+```
+For our Business case of Predicting Video Trendiness we should define "trendiness". We could either take the daily_rank column as a continuous measure of trendiness, and then we assume lower rank is more trendy. Or we need to create a proxy. This could be a simple binary variable (Trending/Not Trending) based on a threshold of view_count, like_count or comment_count or a combination of these. For now we choose to use the daily_rank column as our measure of trendiness, we might revisit this decision later.
+
+#some first Insights
 - dimensioning before grouping is 2743099 Rows, 18 Columns
 - ''language'' column seems to have empty values+different type of values e.g.: "zh-TW", or "ja",or "en-US"
 - 'video-tags'column has alot of empty values
 - 'description'column has alot of empty values
 - from grouping it follows that we have 113 Countries with an average of 24275.21 instances
 - the ranking seems to be per country? so we have multiple top 5 etc
+
+This was a quick overview of the data and some insights we have seen during cleaning as well. Now let's explore some of the variables further. Let us do a univariate Exploratory Data Analysis (EDA). To start, let's find out why the ''country'' column in our cleaned dataset has only 2 character long inputs.
+```{r}
+print(df$country[1])
+
+```
+It seems as if the column 'country' shows corresponding country codes in is02c style, for clarity lets create a new column in which we list the full country names corresponding to the country codes. 
+```{r}
+#lets find the full name to country codes
+library(countrycode)
+
+df$full_country_name <- countrycode(
+  sourcevar = df$country,
+  origin = "iso2c",
+  destination = "country.name",
+  warn = FALSE
+)
+
+# Get a unique list of countries in the dataset
+unique_countries <- unique(df$full_country_name)
+
+# Print the list of unique countries
+print(unique_countries)
+
+
+```
+Now we can clearly see the full country names and we know there are 113 distinct countries in the dataset. What if we group the dataset per country? Lets explore.
+```{r}
+#group the dataset per country
+library(dplyr)
+grouped_df <- df%>% group_by(country)
+country_counts <- grouped_df%>% summarise(count = n())
+print(country_counts)
+#print(mean(country_counts$count))
+summary(country_counts)
+#ungrouping if wanted
+#df_ungrouped <- grouped_df %>% ungroup()
+```
+There is a difference in how often a country is present in the cleaned dataset.This might be worth looking into more later.to see if this is a potential variable with which a correlation to our to be predicted variable daily_rank and thus supposed "trendiness".
+
+What if we calculate the median daily_rank for each country and create a bar chart?
+ . 
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# 1. Calculate the median daily_rank for each country
+country_summary <- df %>%
+  group_by(country) %>%
+  summarise(median_rank = median(daily_rank, na.rm = TRUE)) %>%
+  arrange(median_rank) # Order by median rank
+
+# 2. Create the bar chart
+ggplot(country_summary, aes(x = country, y = median_rank)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  ggtitle("Median Daily Rank by Country")
+
+
+```
+This is unreadable lets see if we can focus on the 10% best performing countries with regards to trendiness(lowest daily_rank)
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# 1. Calculate the number of videos per country
+country_counts <- df %>%
+  group_by(country) %>%
+  summarise(video_count = n()) %>%
+  arrange(desc(video_count))
+
+# 2. Determine the number of countries that represent the top 10%
+num_top_countries <- round(0.10 * n_distinct(df$country))
+
+# 3. Select the top N countries
+top_countries_video_count <- country_counts %>%
+  head(num_top_countries) %>%
+  pull(country)
+
+# 4. Filter the original dataframe to include only the top countries
+df_filtered <- df %>%
+  filter(country %in% top_countries)
+
+# --- DIAGNOSTIC: Check the daily_rank values ---
+print("Summary of daily_rank after filtering:")
+print(summary(df_filtered$daily_rank))
+
+# 5. Calculate the median daily_rank for each of the top countries using the filtered data
+country_summary <- df_filtered %>%
+  group_by(country) %>%
+  summarise(median_rank = median(daily_rank, na.rm = TRUE)) %>%
+  arrange(median_rank)
+
+# 6. Create the bar chart of median rank (if daily_rank is working)
+ggplot(country_summary, aes(x = country, y = median_rank)) +
+  geom_bar(stat = "identity") +
+ scale_y_continuous(limits = c(0, 30), breaks = seq(0, 30, by = 5)) +
+  ggtitle("Median Daily Rank by Top 10% of Countries")
+
+# 7. Create the bar chart of video counts by country
+country_counts_filtered <- country_counts %>%
+  filter(country %in% top_countries_video_count)
+
+ggplot(country_counts_filtered, aes(x = country, y = video_count)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  ggtitle("Number of Videos by Country (Top 10%)")
+
+
+```
+Okay concluding the daily_rank is NOT a good proxy for trendiness, because the variable is ofcourse defined within a specific country. so daily_rank ranges from 0-50 in country X, thus the median is expected to be around 25. Lets try to explore an alternative way to define a proxy for trendiness of a youtube video.
+
+#What if we use the view_count as a Trendiness Measure?
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# 1. Calculate the number of videos per country
+country_counts <- df %>%
+  group_by(country) %>%
+  summarise(video_count = n()) %>%
+  arrange(desc(video_count))
+
+# 2. Determine the number of countries that represent the top 10% based on video count
+num_top_countries <- round(0.10 * n_distinct(df$country))
+
+# 3. Select the top N countries
+top_countries_view_count <- country_counts %>%
+  head(num_top_countries) %>%
+  pull(country)
+
+# 4. Filter the original dataframe to include only the top countries
+df_filtered <- df %>%
+  filter(country %in% top_countries_view_count)
+
+# 5. Calculate the median view_count for each of the top countries
+country_summary <- df_filtered %>%
+  group_by(country) %>%
+  summarise(median_views = median(view_count, na.rm = TRUE)) %>%
+  arrange(desc(median_views)) # Sort by median views, highest first
+
+# 6. Create the bar chart of median view_count
+ggplot(country_summary, aes(x = country, y = median_views)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  ggtitle("Median View Count by Top 10% of Countries")
+
+```
+But now we have filter the 10% of highest video COUNT per country, we want ofcourse 10% of most VIEWED per country:
+```{r}
+library(dplyr)
+library(ggplot2)
+#Get the names.
+df$full_country_name <- countrycode(
+  sourcevar = df$country,
+  origin = "iso2c",
+  destination = "country.name",
+  warn = FALSE
+)
+# 1. Calculate the average view count per country
+country_avg_views <- df %>%
+  group_by(country) %>%
+  summarise(avg_view_count = mean(view_count, na.rm = TRUE)) %>%
+  arrange(desc(avg_view_count))
+
+# 2. Determine the number of countries that represent the top 10% based on most views
+num_top_countries <- round(0.10 * n_distinct(df$country))
+
+# 3. Select the top N countries based on average view count
+top_countries <- country_avg_views %>%
+  head(num_top_countries) %>%
+  pull(country)
+
+# 4. Filter the original dataframe to include only the top countries
+df_filtered <- df %>%
+  filter(country %in% top_countries)
+
+# 5. Create the bar chart of average view count
+ggplot(country_avg_views %>% filter(country %in% top_countries), aes(x = country, y = avg_view_count)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  ggtitle("Average View Count by Top 10% of Countries (Based on Avg Views)")
+
+```
+
+Lets create two seperate lists:one with the top 10% of countries by video count, and another with the top 10% of countries by average view count.
+
+```{r}
+cat("Top 10% of Countries by Video Count:\n")
+cat(top_countries_view_count, sep = "\n")
+
+cat("\nTop 10% of Countries by Average View Count:\n")
+cat(top_countries_avg_views, sep = "\n")
+```
+
+
+
+
+
+
+Let's continue with the column "langauge" why does it seem to have 1)empty values, 2)different type of values e.g.: "zh-TW", or "ja",or "en-US"
+```{r}
+print(df$langauge[0:10])
+```
+```{r}
+#counting empty values and unique values
+
+```
 
 #Questions n.a.v. EDA
 1. why is df$daily_rank different ranking? multiple top 1, 2, 3 etc 
@@ -89,21 +280,18 @@ df_ungrouped <- grouped_df %>% ungroup()
 
 
 
+
+
+
+```{r}
+
+
+```
+
+
 ```{r cars}
 
-```
-```{r}
-#Principal Component Analysis
-df$daily_rank
-df$view_count
-df <-prcomp(df[,c("daily_rank","view_count")])
-cbind(head(df$daily_rank),head(df))
-```
-##webscraping
-Lets add webscraping to get the exact comments!
-```{r}
 
-```
 
 ## Including Plots
 
