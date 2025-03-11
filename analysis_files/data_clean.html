@@ -363,24 +363,6 @@ the code properly and enhances the readability of the code. If you don’t
 want anyone else to update any imports, please mention that in a
 <strong>comment</strong> next to it (see the example provided in line
 1)</p>
-<pre class="r"><code># Load necessary libraries
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>library(tidyr)
-library(stringr)
-library(lubridate)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;lubridate&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     date, intersect, setdiff, union</code></pre>
 <div id="update-this-cell-before-running-the-notebook" class="section level4">
 <h4>Update this cell before running the notebook</h4>
 <p>This cell imports the raw data. Since the data is too large for
@@ -424,8 +406,8 @@ str(raw_data)</code></pre>
 <p>As we can see, we have a lot of <code>chr</code> datatypes and a few
 of <code>int</code> data type. Next, we will check the summary
 statistics (like mean, median, min and max of the numerical columns and
-length, class, mode for non-numerical columns) <em>[Tip: Check*
-<code>terminal</code> *output for better readability]</em></p>
+length, class, mode for non-numerical columns) <em>[Tip: Check
+<code>terminal</code> output for better readability]</em></p>
 <pre class="r"><code> # Summary statistics
 summary(raw_data)</code></pre>
 <pre><code>##     title           channel_name         daily_rank    daily_movement  
@@ -549,7 +531,10 @@ dim(raw_data)</code></pre>
 it is EDA ready. First we start with making sure all the column have
 appropriate datatypes (like <code>date</code> type values in
 <code>snapshot_date</code> column).</p>
-<p><sup><em>It’s just I like to keep a copy of all the versions of data. So, I’m taking a copy of the raw_data into a new variable called ‘cleaned_data’ And I will use that moving forward. If you don’t prefer that way DO NOT run this cell.</em></sup></p>
+<p><em>It’s just I like to keep a copy of all the versions of data. So,
+I’m making a copy of the raw_data into a new variable called
+<code>&#39;cleaned_data&#39;</code>. And I will use that moving forward. If you
+don’t prefer that way, DO NOT run this cell.</em></p>
 <pre class="r"><code>cleaned_data &lt;- raw_data</code></pre>
 <div id="standardizing-column-names-and-removing-duplicate-values" class="section level4">
 <h4>3.1. Standardizing column names and removing duplicate values</h4>
@@ -562,6 +547,9 @@ initial cleaning of the dataset.</p>
   
   # Remove duplicate rows
   df &lt;- df %&gt;% distinct()
+  
+  # Correcting the spelling
+  colnames(df)[colnames(df) == &quot;langauge&quot;] &lt;- &quot;language&quot;
   
   return(df)
 }</code></pre>
@@ -617,7 +605,7 @@ head(cleaned_df)</code></pre>
 ## 4                                                                                                                                                                                                                                          NFL, Football, American Football, sport, sports
 ## 5                                                          man city, manchester city, mcfc, man city highlights, man city goals, city, city vs, man city vs, man city v, Real Madrid, RMA, RMAMCI UEFA Champions League, Champions League, UCL, Mbappe, Kylian Mbappe, Nico, Nico Gonzalez
 ## 6 man city, manchester city, mcfc, man city highlights, man city goals, city, city vs, man city vs, man city v, real madrid, city v madrid, city v real, city v real madrid, man city v real madrid, man city v madrid, manchester city v real madrid, marmoush, khusanov, haaland, mbappe
-##            kind              publish_date langauge
+##            kind              publish_date language
 ## 1 youtube#video 2025-02-17 00:00:00+00:00         
 ## 2 youtube#video 2025-02-01 00:00:00+00:00         
 ## 3 youtube#video 2025-02-01 00:00:00+00:00         
@@ -628,8 +616,88 @@ head(cleaned_df)</code></pre>
 <code>small_case</code> and we have also removed any duplicate columns.
 Our dataset, didn’t have any duplicate values. So, Yayyy!</p>
 </div>
+<div id="tidy-up-the-non-numerical-columns" class="section level4">
+<h4>3.2. Tidy up the non-numerical columns</h4>
+<p>The non-numerical columns tend to have special characters (like $, %,
+etc.) that might not be useful for us. Also, it might contain some ASCII
+or Unicode characters as well (such as <code>&quot;\n&quot;</code>) that might be
+interfering with the readability and analysis of the values. So, its
+better to treat them by removing them from our dataset.</p>
+<pre class="r"><code>clean_character_columns &lt;- function(df) {
+  df &lt;- df %&gt;%
+    mutate(across(where(is.character), ~ {
+      cleaned_text &lt;- str_squish(str_replace_all(., &quot;\\p{C}+&quot;, &quot;&quot;))
+      ifelse(cleaned_text == &quot;&quot;, NA, cleaned_text)
+    }))
+  
+  return(df)
+}</code></pre>
+<pre class="r"><code>cleaned_df &lt;- clean_character_columns(cleaned_df)
+head(cleaned_df)</code></pre>
+<pre><code>##                                                                                title
+## 1                               Jah Prayzah - Mandionei (Official Performance Video)
+## 2                                                                     Winky D - Siya
+## 3                                              Winky D Fake Love (Official Ai Video)
+## 4                              Kendrick Lamar&#39;s Apple Music Super Bowl Halftime Show
+## 5                      HIGHLIGHTS Real Madrid 3-1 Man City | Mbappe (3) &amp; Nico Goals
+## 6 HIGHLIGHTS Man City 2-3 Real Madrid | Haaland (2), Mbappe, Diaz &amp; Bellingham Goals
+##   channel_name daily_rank daily_movement weekly_movement snapshot_date country
+## 1  Jah Prayzah          1              0              49    2025-02-20      ZW
+## 2  winkyonline          2              0              -1    2025-02-20      ZW
+## 3  winkyonline          3              0              -1    2025-02-20      ZW
+## 4          NFL          4              0              -1    2025-02-20      ZW
+## 5     Man City          5             45              45    2025-02-20      ZW
+## 6     Man City          6             -1              -2    2025-02-20      ZW
+##   view_count like_count comment_count
+## 1     640294      33578          6942
+## 2    1483949      59662         10408
+## 3    1031541      48158          6185
+## 4   75930862    2735285        161203
+## 5    4166631      64473          3630
+## 6   10558534     203986          8784
+##                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  description
+## 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         Our first single for 2025Not a part of the Ndini Mukudzeyi AlbumProduced by: Rodney BeatzDirected by: Svinurai and Umsebenzi Ka BlaqsAssistant Director: Dir. DaveThumbnail Design: Astonish Media
+## 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             You can purchase the EP from stores below:SPOTIFY - https://open.spotify.com/album/169XgVulpRsny8FPGLkY9s?si=2UJneIdSSd6dJZEmka9YNAiTunes - https://music.apple.com/us/album/pabho-ep-ep/1794128507Instrumental by OskidDirected by ImaniiiColorist: Imaniii (Kelvin Mucheche)
+## 3                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          You can purchase the EP from stores below:SPOTIFY - https://open.spotify.com/album/169XgVulpRsny8FPGLkY9s?si=2UJneIdSSd6dJZEmka9YNAiTunes - https://music.apple.com/us/album/pabho-ep-ep/1794128507Instrumental by OskidEngineered by OskidVideo by Jusa Dementor
+## 4                                                                                                                                                                                                                                                                                                                                                                                                                                        Watch hip-hop’s MVP put on an epic performance at the Apple Music Super Bowl LIX Halftime Show. Plus, get six months of Apple Music for only $2.99 and hear his latest tracks in Spatial Audio: https://geni.us/Kendrick-Lamar*New subscribers on eligible devices only. $10.99/mo after offer period. Terms and restrictions apply.Watch live local and primetime games, NFL RedZone, and NFL Network on Plus.NFL.comCheck out our other channels:NFL Tuesday Night Gaming https://www.youtube.com/c/NFLTNGNFL Mundo https://www.youtube.com/mundonflNFL Brasil https://www.youtube.com/c/NFLBrasilOficialNFL UK https://www.youtube.com/channel/UCVe0dAja_vZCmvfHXjtdRQA NFL Fantasy Football https://www.youtube.com/nflfantasyfootballNFL Play Football https://www.youtube.com/playfootballNFL Throwback http://www.youtube.com/nflvaultNFL Films http://www.youtube.com/nflfilmsNFL Network http://www.youtube.com/nflnetwork#NFL #Football #AmericanFootball
+## 5 Manchester City were knocked out this season’s UEFA Champions League after a 6-3 aggregate defeat to Real Madrid.Pep Guardiola’s side were beaten 3-1 in the second leg at the Santiago Bernabeu with Kylian Mbappe scoring a hat-trick for the current European champions.After a 3-2 defeat in the first leg at the Etihad, City fell further behind in the tie when the Frenchman scored the opener after just four minutes.And we suffered a further early early setback with John Stones going off injured after just eight minutes while Erling Haaland was unable to feature in the fixture.Mbappe scored two more either side of half-time before Nico scored his first goal for City in the dying minutes. SUBSCRIBE! http://www.youtube.com/subscription_center?add_user=mancityhttp://www.mancity.comhttp://www.facebook.com/mancityhttp://www.twitter.com/mancityhttp://www.instagram.com/mancityhttps://www.tiktok.com/@mancityAbout the Official Man City YouTube Channel:Here you will find all the latest videos from Manchester City, including, all Premier League, Champions League, FA Cup and League Cup goals, highlights, behind-the-scenes footage, training and much more.Get closer to the likes of Jack Grealish, Bunny Shaw, Kevin De Bruyne, Lauren Hemp, Erling Haaland, Joško Gvardiol, Phil Foden, Vivianne Miedema and the rest of Pep Guardiola &amp; Gareth Taylor&#39;s teams!
+## 6                                                                                                                                                                                                                               City face a tough task to progress in the Champions League after losing the first play-off leg 3-2 to Real Madrid.Erling Haaland twice put the Blues ahead in a thrilling encounter, but the Spanish side hit back each time, before snatching victory with almost the final kick of the game.It leaves City needing to win by at least a goal in the second leg to at least level the aggregate scores and have any chance of progressing after a heart-breaking final seven minutes.SUBSCRIBE! http://www.youtube.com/subscription_center?add_user=mancityhttp://www.mancity.comhttp://www.facebook.com/mancityhttp://www.twitter.com/mancityhttp://www.instagram.com/mancityhttps://www.tiktok.com/@mancityAbout the Official Man City YouTube Channel:Here you will find all the latest videos from Manchester City, including, all Premier League, Champions League, FA Cup and League Cup goals, highlights, behind-the-scenes footage, training and much more.Get closer to the likes of Jack Grealish, Bunny Shaw, Kevin De Bruyne, Lauren Hemp, Erling Haaland, Joško Gvardiol, Phil Foden, Vivianne Miedema and the rest of Pep Guardiola &amp; Gareth Taylor&#39;s teams!
+##                                      thumbnail_url    video_id
+## 1 https://i.ytimg.com/vi/hQGU7Hjr6KA/mqdefault.jpg hQGU7Hjr6KA
+## 2 https://i.ytimg.com/vi/Mq0J2Q4I71U/mqdefault.jpg Mq0J2Q4I71U
+## 3 https://i.ytimg.com/vi/6YvoX8x6aCw/mqdefault.jpg 6YvoX8x6aCw
+## 4 https://i.ytimg.com/vi/KDorKy-13ak/mqdefault.jpg KDorKy-13ak
+## 5 https://i.ytimg.com/vi/zpieZkvFnlE/mqdefault.jpg zpieZkvFnlE
+## 6 https://i.ytimg.com/vi/-zstdRA01FA/mqdefault.jpg -zstdRA01FA
+##                 channel_id
+## 1 UCPpVYvHuQSIkQwW1pJhfPrA
+## 2 UC9iqkdRHEbX7hwEu9D6J8wg
+## 3 UC9iqkdRHEbX7hwEu9D6J8wg
+## 4 UCDVYQ4Zhbm3S2dlz7P1GBDg
+## 5 UCkzCjdRMrW2vXLx8mvPVLdQ
+## 6 UCkzCjdRMrW2vXLx8mvPVLdQ
+##                                                                                                                                                                                                                                                                                 video_tags
+## 1                                                                                                                                                                                                                                                                                     &lt;NA&gt;
+## 2                                                                                                                                                                                                                                                                                     &lt;NA&gt;
+## 3                                                                                                                                                                                                                                                                                     &lt;NA&gt;
+## 4                                                                                                                                                                                                                                          NFL, Football, American Football, sport, sports
+## 5                                                          man city, manchester city, mcfc, man city highlights, man city goals, city, city vs, man city vs, man city v, Real Madrid, RMA, RMAMCI UEFA Champions League, Champions League, UCL, Mbappe, Kylian Mbappe, Nico, Nico Gonzalez
+## 6 man city, manchester city, mcfc, man city highlights, man city goals, city, city vs, man city vs, man city v, real madrid, city v madrid, city v real, city v real madrid, man city v real madrid, man city v madrid, manchester city v real madrid, marmoush, khusanov, haaland, mbappe
+##            kind              publish_date language
+## 1 youtube#video 2025-02-17 00:00:00+00:00     &lt;NA&gt;
+## 2 youtube#video 2025-02-01 00:00:00+00:00     &lt;NA&gt;
+## 3 youtube#video 2025-02-01 00:00:00+00:00     &lt;NA&gt;
+## 4 youtube#video 2025-02-10 00:00:00+00:00       en
+## 5 youtube#video 2025-02-20 00:00:00+00:00    en-GB
+## 6 youtube#video 2025-02-12 00:00:00+00:00    en-GB</code></pre>
+<p>Here, the function <code>clean_character_columns</code> checks if the
+column is of type <code>character</code> and removes all the Unicode
+chars (such as <code>&quot;\n&quot;,&quot;\r&quot;,&quot;\t&quot;</code>). Finally, it trims the
+leading, trailing and extra spaces with the <code>str_squish(.)</code>
+function.</p>
+</div>
 <div id="null-value-treatment" class="section level4">
-<h4>3.2. Null value treatment</h4>
+<h4>3.3. Null value treatment</h4>
 <p>Now, its time to treat the null values. First, let’s define a
 <code>udf</code> to analyse the data and fetch us how many null values
 are present in each column.</p>
@@ -657,24 +725,24 @@ are present in each column.</p>
 <pre class="r"><code>null_df &lt;- analyze_columns(cleaned_df)
 print(null_df)</code></pre>
 <pre><code>##                 column_type number_of_nulls X._nulls        mean  median min
-## title             character               0        0        0.00       0   0
-## channel_name      character               0        0        0.00       0   0
-## daily_rank          integer               0        0       25.52      26   1
-## daily_movement      integer               0        0        1.74      -2 -49
-## weekly_movement     integer               0        0       17.28      20 -49
-## snapshot_date     character               0        0        0.00       0   0
-## country           character               0        0        0.00       0   0
-## view_count          integer               0        0 12749584.43 2021174   0
-## like_count          integer               0        0   411172.54   70872   0
-## comment_count       integer               0        0     7608.75    1328   0
-## description       character               0        0        0.00       0   0
-## thumbnail_url     character               0        0        0.00       0   0
-## video_id          character               0        0        0.00       0   0
-## channel_id        character               0        0        0.00       0   0
-## video_tags        character               0        0        0.00       0   0
-## kind              character               0        0        0.00       0   0
-## publish_date      character               0        0        0.00       0   0
-## langauge          character               0        0        0.00       0   0
+## title             character               0     0.00        0.00       0   0
+## channel_name      character               0     0.00        0.00       0   0
+## daily_rank          integer               0     0.00       25.52      26   1
+## daily_movement      integer               0     0.00        1.74      -2 -49
+## weekly_movement     integer               0     0.00       17.28      20 -49
+## snapshot_date     character               0     0.00        0.00       0   0
+## country           character               0     0.00        0.00       0   0
+## view_count          integer               0     0.00 12749584.43 2021174   0
+## like_count          integer               0     0.00   411172.54   70872   0
+## comment_count       integer               0     0.00     7608.75    1328   0
+## description       character          503191    18.50        0.00       0   0
+## thumbnail_url     character               0     0.00        0.00       0   0
+## video_id          character               0     0.00        0.00       0   0
+## channel_id        character               0     0.00        0.00       0   0
+## video_tags        character          901279    33.13        0.00       0   0
+## kind              character               0     0.00        0.00       0   0
+## publish_date      character               0     0.00        0.00       0   0
+## language          character          689070    25.33        0.00       0   0
 ##                        max
 ## title                    0
 ## channel_name             0
@@ -693,31 +761,83 @@ print(null_df)</code></pre>
 ## video_tags               0
 ## kind                     0
 ## publish_date             0
-## langauge                 0
-##                                                                                                              mode
-## title           Cool Items!🥰 New Gadgets, Smart Appliances, Kitchen Tools Utensils, Home Cleaning, Beauty #shorts
-## channel_name                                                                                              MrBeast
-## daily_rank                                                                                                     49
-## daily_movement                                                                                                  0
-## weekly_movement                                                                                                49
-## snapshot_date                                                                                          2024-03-16
-## country                                                                                                        RU
-## view_count                                                                                                      0
-## like_count                                                                                                      0
-## comment_count                                                                                                   0
-## description                                                                                                      
-## thumbnail_url                                                    https://i.ytimg.com/vi/QdBZY2fkU-0/mqdefault.jpg
-## video_id                                                                                              QdBZY2fkU-0
-## channel_id                                                                               UCX6OQ3DkcsbYNE6H8uQQuVA
-## video_tags                                                                                                       
-## kind                                                                                                youtube#video
-## publish_date                                                                            2024-12-22 00:00:00+00:00
-## langauge</code></pre>
-<p>Surprisingly, the dataset does not contain any null values. We do not
-have to impute the null values.</p>
+## language                 0
+##                                                                                                                                                                                                        mode
+## title                                                                                                     Cool Items!🥰 New Gadgets, Smart Appliances, Kitchen Tools Utensils, Home Cleaning, Beauty #shorts
+## channel_name                                                                                                                                                                                        MrBeast
+## daily_rank                                                                                                                                                                                               49
+## daily_movement                                                                                                                                                                                            0
+## weekly_movement                                                                                                                                                                                          49
+## snapshot_date                                                                                                                                                                                    2024-03-16
+## country                                                                                                                                                                                                  RU
+## view_count                                                                                                                                                                                                0
+## like_count                                                                                                                                                                                                0
+## comment_count                                                                                                                                                                                             0
+## description                                                                                                                                                                                         #shorts
+## thumbnail_url                                                                                                                                              https://i.ytimg.com/vi/QdBZY2fkU-0/mqdefault.jpg
+## video_id                                                                                                                                                                                        QdBZY2fkU-0
+## channel_id                                                                                                                                                                         UCX6OQ3DkcsbYNE6H8uQQuVA
+## video_tags      Stokes twins, Mrbeast, Fede, mark rober, Airrack, Ryan Trahan, Dhar mann, Royalty family, Jordan matter, Unspeakable, Preston, Ben azelart, Brent Rivera, Jeremy Hutchins, Lexi Rivera, Amp
+## kind                                                                                                                                                                                          youtube#video
+## publish_date                                                                                                                                                                      2024-12-22 00:00:00+00:00
+## language                                                                                                                                                                                                 en</code></pre>
+<p>So, the columns - <code>description</code>, <code>video_tags</code>
+and <code>language</code> have null values in them. We cannot treat them
+with any common values, since they are dependent on the video itself
+(i.e. each record). We can drop the rows that has null values, but we
+will decide this after/during feature selection step - to ensure we are
+not losing any valuable data.</p>
 </div>
-<div id="outlier-treatment" class="section level4">
-<h4>3.3. Outlier treatment</h4>
+<div id="dropping-unnecessary-columns" class="section level4">
+<h4>3.4. Dropping Unnecessary columns</h4>
+<p>We will do a premilinary feature engineering, by dropping unnecessary
+columns and the columns that might not be useful based on the subject
+knowledge. Some basic conditions for determining not-so-useful columns
+are:</p>
+<ol style="list-style-type: decimal">
+<li>Columns with more than 75% null values</li>
+<li>Columns with only 1 unique values</li>
+<li>Entire column/row being null</li>
+</ol>
+<p>Now let’s check the number of unique values and drop the columns with
+only 1 unique value.</p>
+<pre class="r"><code>check_unique_values &lt;- function(df) {
+  unique_counts &lt;- sapply(df, function(col) length(unique(col)))
+  
+  return(cbind(Unique_Values = unique_counts))
+}</code></pre>
+<pre class="r"><code>unique_values_table &lt;- check_unique_values(cleaned_df)
+print(unique_values_table)</code></pre>
+<pre><code>##                 Unique_Values
+## title                  216231
+## channel_name            37126
+## daily_rank                 50
+## daily_movement             99
+## weekly_movement            99
+## snapshot_date             481
+## country                   113
+## view_count            1426586
+## like_count             854054
+## comment_count           89809
+## description            165055
+## thumbnail_url          213810
+## video_id               213796
+## channel_id              36504
+## video_tags             109926
+## kind                        1
+## publish_date             2784
+## language                  148</code></pre>
+<p>For now, we will drop the columns - <code>snapshot_date</code>,
+<code>thumbnail_url</code>, <code>kind</code>. Later, based on the
+further analysis, we can come back and drop more columns if needed.</p>
+<pre class="r"><code>print(dim(cleaned_df))</code></pre>
+<pre><code>## [1] 2720499      18</code></pre>
+<pre class="r"><code>cleaned_df &lt;- cleaned_df %&gt;% select(-c(snapshot_date, thumbnail_url, kind))
+print(dim(cleaned_df))</code></pre>
+<pre><code>## [1] 2720499      15</code></pre>
+</div>
+<div id="outlier-identification" class="section level4">
+<h4>3.5. Outlier identification</h4>
 <p>Next, we will check for outliers in the numerical column of our
 dataset. We can do this in 2 different ways. 1 - Visually using box
 plots and 2nd using the IQR, where we calculate the upper and lower
@@ -773,7 +893,7 @@ export_data(cleaned_df, data_filepath)</code></pre>
 cleaning, clustering, merging or separation of the dataset(s) will
 happen in the next step(s).</p>
 <pre class="r"><code>## This block removes all the elements from your environment
-# remove(list = ls())</code></pre>
+remove(list = ls())</code></pre>
 <hr />
 </div>
 <div id="dev-team-journal" class="section level3">
@@ -784,6 +904,8 @@ Honestly, it is a bit annoying rn, but I feel that it will get better -
 ShR (27th Feb 2025 - 15:01)</em></p>
 <p><em>I think I’m getting used to R now, but still Python rules! - ShR
 (1st March 2025 - 12:09)</em></p>
+<p><em>Okay, this is getting nicer. But why can’t I use Python (Frown
+face) - ShR (11th March 2025 - 16.51)</em></p>
 </blockquote>
 <hr />
 </div>

@@ -9,7 +9,7 @@ output: html_document
 
 Only use this cells to import all the required libraries. DO NOT import the libraries in any other cells below, it helps with maintaining the code properly and enhances the readability of the code. If you don't want anyone else to update any imports, please mention that in a **comment** next to it (see the example provided in line 1)
 
-```{r}
+```{r import libraries, include=FALSE}
 # Load necessary libraries
 library(dplyr)
 library(tidyr)
@@ -21,7 +21,7 @@ library(lubridate)
 
 This cell imports the raw data. Since the data is too large for `GitHub` we can only use the data in our local system. So, please make sure you update the `filepath` with your own path before proceeding further in the notebook.
 
-```{r}
+```{r import dataset}
 # Update this variable with the your own filepath
 data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries.csv"
 
@@ -40,7 +40,7 @@ We are just performing an initial check on the raw data. We do not manipulate an
 str(raw_data)
 ```
 
-As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check\* `terminal` \*output for better readability]*
+As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check `terminal` output for better readability]*
 
 ```{r}
  # Summary statistics
@@ -75,7 +75,7 @@ dim(raw_data)
 
 In this step, we will clean the raw data as much as possible, so that it is EDA ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
 
-^*It's just I like to keep a copy of all the versions of data. So, I'm taking a copy of the raw_data into a new variable called 'cleaned_data' And I will use that moving forward. If you don't prefer that way DO NOT run this cell.*^
+*It's just I like to keep a copy of all the versions of data. So, I'm making a copy of the raw_data into a new variable called `'cleaned_data'`. And I will use that moving forward. If you don't prefer that way, DO NOT run this cell.*
 
 ```{r}
 cleaned_data <- raw_data
@@ -94,6 +94,9 @@ clean_data <- function(df){
   # Remove duplicate rows
   df <- df %>% distinct()
   
+  # Correcting the spelling
+  colnames(df)[colnames(df) == "langauge"] <- "language"
+  
   return(df)
 }
 ```
@@ -106,7 +109,30 @@ head(cleaned_df)
 
 As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset, didn't have any duplicate values. So, Yayyy!
 
-#### 3.2. Null value treatment
+#### 3.2. Tidy up the non-numerical columns
+
+The non-numerical columns tend to have special characters (like \$, %, etc.) that might not be useful for us. Also, it might contain some ASCII or Unicode characters as well (such as `"\n"`) that might be interfering with the readability and analysis of the values. So, its better to treat them by removing them from our dataset.
+
+```{r}
+clean_character_columns <- function(df) {
+  df <- df %>%
+    mutate(across(where(is.character), ~ {
+      cleaned_text <- str_squish(str_replace_all(., "\\p{C}+", ""))
+      ifelse(cleaned_text == "", NA, cleaned_text)
+    }))
+  
+  return(df)
+}
+```
+
+```{r}
+cleaned_df <- clean_character_columns(cleaned_df)
+head(cleaned_df)
+```
+
+Here, the function `clean_character_columns` checks if the column is of type `character` and removes all the Unicode chars (such as `"\n","\r","\t"`). Finally, it trims the leading, trailing and extra spaces with the `str_squish(.)` function.
+
+#### 3.3. Null value treatment
 
 Now, its time to treat the null values. First, let's define a `udf` to analyse the data and fetch us how many null values are present in each column.
 
@@ -139,9 +165,40 @@ null_df <- analyze_columns(cleaned_df)
 print(null_df)
 ```
 
-Surprisingly, the dataset does not contain any null values. We do not have to impute the null values.
+So, the columns - `description`, `video_tags` and `language` have null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that has null values, but we will decide this after/during feature selection step - to ensure we are not losing any valuable data.
 
-#### 3.3. Outlier treatment
+#### 3.4. Dropping Unnecessary columns
+
+We will do a premilinary feature engineering, by dropping unnecessary columns and the columns that might not be useful based on the subject knowledge. Some basic conditions for determining not-so-useful columns are:
+
+1.  Columns with more than 75% null values
+2.  Columns with only 1 unique values
+3.  Entire column/row being null
+
+Now let's check the number of unique values and drop the columns with only 1 unique value.
+
+```{r}
+check_unique_values <- function(df) {
+  unique_counts <- sapply(df, function(col) length(unique(col)))
+  
+  return(cbind(Unique_Values = unique_counts))
+}
+```
+
+```{r}
+unique_values_table <- check_unique_values(cleaned_df)
+print(unique_values_table)
+```
+
+For now, we will drop the columns - `snapshot_date`, `thumbnail_url`, `kind`. Later, based on the further analysis, we can come back and drop more columns if needed.
+
+```{r}
+print(dim(cleaned_df))
+cleaned_df <- cleaned_df %>% select(-c(snapshot_date, thumbnail_url, kind))
+print(dim(cleaned_df))
+```
+
+#### 3.5. Outlier identification
 
 Next, we will check for outliers in the numerical column of our dataset. We can do this in 2 different ways. 1 - Visually using box plots and 2nd using the IQR, where we calculate the upper and lower boundary of the column (anything outside this boundary is an outlier). Now, we will just detect if there are any outliers using the 2nd method. *[Note: The visual inspection of outliers will be carried out during the EDA].*
 
@@ -199,5 +256,7 @@ That brings us to the end of the data cleaning part. Any more cleaning, clusteri
 > *Here, I'm just trying to get used to the R environment - Honestly, it is a bit annoying rn, but I feel that it will get better - ShR (27th Feb 2025 - 15:01)*
 >
 > *I think I'm getting used to R now, but still Python rules! - ShR (1st March 2025 - 12:09)*
+>
+> *Okay, this is getting nicer. But why can't I use Python (Frown face) - ShR (11th March 2025 - 16.51)*
 
 ------------------------------------------------------------------------
