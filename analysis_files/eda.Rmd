@@ -1,0 +1,150 @@
+---
+title: "eda"
+output: html_document
+---
+
+# Exploratory Data Analysis (incomplete notebook)
+
+As usual, we start with importing the required libraries and the dataset.
+
+```{r import libraries, include=FALSE}
+# Load necessary libraries
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(wordcloud2)
+library(tm)
+library(lubridate)  # For time aggregation
+```
+
+```{r import data}
+
+data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"
+
+cleaned_data <- read.csv(data_filepath)
+```
+
+## 1. Univariate Analysis
+
+The first step in EDA is "`Univariate analysis`" - in a nutshell - means that analysing each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
+
+Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column and if its the intended type (eg `int` or `chr`) for that function, it will analyse that column and print the respective results.
+
+-   For `numerical columns` the function will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values`.
+
+-   For `categorical columns` the function will check for the `frequency counts` and plots a `bar graph`
+
+-   For `text data` the function will calculate `number of words and character`, `most common words` and prints a `word cloud`.
+
+```{r}
+analyze_numerical <- function(df) {
+  numerical_cols <- names(df)[sapply(df, is.numeric)]
+  
+  for (col in numerical_cols) {
+    cat("\nColumn Name: ", col, "\n")
+    print(summary(df[[col]]))
+    cat("Skewness:", e1071::skewness(df[[col]], na.rm = TRUE), "\n")
+    cat("Kurtosis:", e1071::kurtosis(df[[col]], na.rm = TRUE), "\n")
+    print("-------------------------------------------------------")
+    
+    # Visualizations
+    pic_1 <- ggplot(df, aes(x = .data[[col]])) + 
+      geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.5) +
+      geom_density(color = "red") +
+      ggtitle(paste("Histogram of", col))
+    
+    pic_1 <- ggplot(df, aes(y = .data[[col]])) + 
+      geom_boxplot(fill = "orange", alpha = 0.5) +
+      ggtitle(paste("Boxplot of", col))
+    
+    print(pic_1)
+    print(pic_1)
+  }
+}
+```
+
+```{r}
+analyze_categorical <- function(df) {
+  categorical_cols <- names(df)[sapply(df, is.character) | sapply(df, is.factor)]
+  
+  for (col in categorical_cols) {
+    cat("\nColumn Name: ", col, "\n")
+    print(table(df[[col]]))
+    
+    # Visualization
+    pic <- ggplot(df, aes(x = .data[[col]])) + 
+      geom_bar(fill = "blue", alpha = 0.5) +
+      ggtitle(paste("Bar Plot of", col)) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    print(pic)
+    print("-------------------------------------------------------")
+  }
+}
+```
+
+```{r}
+analyze_text <- function(df) {
+  text_cols <- names(df)[sapply(df, function(x) is.character(x) & mean(nchar(x), na.rm = TRUE) > 30)]
+  cat("\nText Columns: ", text_cols, "\n")
+  for (col in text_cols) {
+    cat("\nColumn Name: ", col, "\n")
+    df[[col]] <- as.character(df[[col]])
+    df[[col]][is.na(df[[col]])] <- ""
+    
+    # Word and character count
+    # df$word_count <- sapply(strsplit(df[[col]], " "), length)
+    # df$char_count <- nchar(df[[col]])
+    # print(summary(df$word_count))
+    # print(summary(df$char_count))
+    
+    # Most common words
+    words <- unlist(strsplit(tolower(paste(df[[col]], collapse = " ")), " "))
+    words <- words[words != ""]
+    common_words <- sort(table(words), decreasing = TRUE)[1:10]
+    print(common_words)
+    
+    # Word Cloud
+    word_freq <- data.frame(word = names(common_words), freq = as.numeric(common_words))
+    wordcloud2(word_freq)
+    print("-------------------------------------------------------")
+  }
+}
+```
+
+```{r}
+analyze_numerical(cleaned_data)
+```
+
+```{r}
+analyze_text(cleaned_data)
+```
+
+```{r}
+
+# a sample code from chatGPT to conduct Trend Analysis
+
+trend_analysis <- function(df, date_col, num_col, time_unit = "month") {
+  df <- df %>%
+    mutate(aggregated_date = floor_date(.data[[date_col]], unit = time_unit)) %>%  # Aggregate by time unit
+    group_by(aggregated_date) %>%
+    summarise(mean_value = mean(.data[[num_col]], na.rm = TRUE), .groups = "drop")
+  
+  ggplot(df, aes(x = aggregated_date, y = mean_value)) +
+    geom_line(color = "blue") +
+    geom_point(color = "red") +
+    geom_smooth(method = "loess", se = FALSE, color = "green") +
+    labs(title = paste("Trend Analysis of", num_col, "over Time"),
+         x = date_col,
+         y = paste("Average", num_col)) +
+    theme_minimal()
+}
+
+# Example Usage
+# df <- data.frame(date = seq(as.Date("2024-01-01"), 
+#                             as.Date("2024-12-31"), 
+#                             by = "day"),
+#                  value = rnorm(366, mean = 100, sd = 20))
+
+# trend_analysis(df, "date", "value", "month")
+```
