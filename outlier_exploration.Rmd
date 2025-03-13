@@ -1,0 +1,156 @@
+---
+title: "outlier_exploration"
+output: html_document
+date: "2025-03-12"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+From Ryan
+
+Based on Sabesh's data_clean.rmd code which identified the outliers. The
+first few chunks are Sabesh's code. I adjusted the outlier report to
+also include IQR, Q1, Q3, and potentially more statistical analyses.
+Then its my code.
+
+Gotta import the libraries
+
+```{r import libraries, include=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+```
+
+Importing cleaned data as cleaned_df
+
+```{r import dataset}
+# Update this variable with the your own filepath
+data_filepath <- "/Users/ryandelft/Desktop/MOT143A Business Analytics/Group Project/Github Code/Dataset YT/trending_yt_videos_113_countries_cleaned.csv"
+
+#Import dataset
+cleaned_df <- read.csv(data_filepath)
+```
+
+```{r basic exploration}
+#str(cleaned_df)
+summary(cleaned_df)
+```
+
+Detecting outliers adapted from Sabesh's code
+
+```{r detect outliers}
+detect_outliers <- function(df) {
+  numeric_cols <- df %>% 
+    select(where(is.numeric))
+  outlier_summary <- data.frame(column = character(), lower_bound = numeric(), 
+                                upper_bound = numeric(), num_outliers = integer(), 
+                                iqr = numeric(), q1 = numeric(), q3 = numeric())
+                                
+  for (col in colnames(numeric_cols)) {
+    q1 <- quantile(numeric_cols[[col]], 0.25, na.rm = TRUE)
+    q3 <- quantile(numeric_cols[[col]], 0.75, na.rm = TRUE)
+    iqr_value <- q3 - q1
+    lower_limit <- q1 - 1.5 * iqr_value
+    upper_limit <- q3 + 1.5 * iqr_value
+    num_of_outliers <- sum(numeric_cols[[col]] < lower_limit | numeric_cols[[col]] > upper_limit, na.rm = TRUE)
+    
+    outlier_summary <- rbind(outlier_summary, data.frame(column = col, lower_bound = lower_limit, 
+                                                         upper_bound = upper_limit, num_outliers = num_of_outliers, 
+                                                         iqr = iqr_value, q1 = q1, q3 = q3))
+  }
+  return(outlier_summary)
+}
+
+```
+
+Printing outlier report
+
+```{r print outlier report}
+outlier_report <- detect_outliers(cleaned_df)
+print(outlier_report)
+```
+
+**Ryan notes**
+
+1\. Shouldn't the upper bounds for daily rank, daily movement, and
+weekly movement be 50; lower bounds -49 for movements
+
+2\. Also, like_count, view_count, comment_count lower bounds should also
+be 0?
+
+3\. there are also videos which are daily/weekly number 1 with 0 views
+and 0 likes - do those need to be deleted?
+
+4\. outliers in daily movement, based on this chart, are videos that
+moved up or down by roughly 38 places in a day
+
+**What to do about outliers?**
+
+1\. daily rank: min=0, max=50
+
+2\. daily movement: min=-50, max=50
+
+3\. weekly movemement: min=-50, max=50
+
+4\. view count: min=0, no max
+
+5\. like count: min=0, no max
+
+6\. comment count: min=0, no max
+
+```{r group outliers}
+#making df for outliers of a column just to look at them
+
+group_outliers <- function(df) {
+  #hard coding the column I want based on outlier metrics
+  outlier_rows <- df %>% filter(comment_count >=4041)
+   
+
+  return(outlier_rows)
+}
+```
+
+```{r print outlier_df}
+outlier_df <- group_outliers(cleaned_df)
+print(outlier_df)
+```
+
+#Lets perform a correlation analysis on the outlier_df (From Liam)
+
+```{r correlation outlier_df}
+cor_matrix <- outlier_df %>%
+  select(view_count, like_count, comment_count, daily_rank, daily_movement, weekly_movement) %>%
+  cor(use = "complete.obs")
+print(cor_matrix)
+
+```
+
+#Compared to cleaned_df
+
+```{r correlation cleaned_df}
+cor_matrix <- cleaned_df %>%
+  select(view_count, like_count, comment_count, daily_rank, daily_movement, weekly_movement) %>%
+  cor(use = "complete.obs")
+print(cor_matrix)
+
+```
+
+Very similar results. But! discrepancy between comment
+count/weekly_movement (row/column) in outliers: 0.013 and in cleaned_df:
+-0.008. Further, the weekly_movement/comment_count in outliers: 0.0134
+and in cleaned_df: -0.0089. There are also discrepancies with the
+daily_rank & daily movement wrt comment_count. Comment_count seems like
+an interesting predictor of ranking at least.
+
+Interesting relationships between comment_count and daily/weekly
+movements when we look at correlation coefficients of the outlier_df and
+cleaned_df (full dataset)
+
+Cleaned_df: comment_count / daily_rank: -0.040503626 comment_count /
+daily_movement: -0.01030539 comment_count / weekly_movement: -0.00897838
+
+Outlier_df: comment_count / daily_rank: -0.05007134 comment_count /
+daily_movement: 0.007202671 comment_count / weekly_movement: 0.01340262
