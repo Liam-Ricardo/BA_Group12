@@ -16,6 +16,11 @@ library(tidyr)
 library(wordcloud2)
 library(tm)
 library(lubridate)  # For time aggregation
+
+library(stringr)
+library(textTinyR)
+library(tm)
+library(hunspell)
 ```
 
 ```{r import data}
@@ -147,4 +152,83 @@ trend_analysis <- function(df, date_col, num_col, time_unit = "month") {
 #                  value = rnorm(366, mean = 100, sd = 20))
 
 # trend_analysis(df, "date", "value", "month")
+```
+
+```{r}
+
+# cleaned_df <- read.csv(data_filepath, stringsAsFactors = FALSE)
+
+stopwords_list <- stopwords("en")  # Define globally
+
+tokenize <- function(text) {
+  words <- unlist(str_extract_all(tolower(text), "\\b\\w+\\b"))
+  words <- words[!(words %in% stopwords_list) & nchar(words) > 4 & !grepl("^\\d+$", words)]
+  return(words)
+}
+
+get_top_words <- function(df, ranking_type) {
+  if (tolower(ranking_type) == "rank") {
+    threshold <- quantile(df$daily_rank, 0.1, na.rm = TRUE)
+    top_videos <- df %>% filter(daily_rank <= threshold)
+  } else if (tolower(ranking_type) == "movement") {
+    threshold_daily <- quantile(df$daily_movement, 0.1, na.rm = TRUE)
+    threshold_weekly <- quantile(df$weekly_movement, 0.1, na.rm = TRUE)
+    top_videos <- df %>% filter(daily_movement <= threshold_daily | weekly_movement <= threshold_weekly)
+  } else {
+    stop("Invalid ranking_type. Use 'rank' or 'movement'.")
+  }
+  
+  # Ignore NA values
+  top_videos <- top_videos %>% drop_na(title, video_tags)
+  
+  # Process title words
+  title_words <- unlist(strsplit(top_videos$title, " ")) %>% tokenize()
+  title_word_counts <- sort(table(title_words), decreasing = TRUE)
+  
+  # Process video tags words
+  tag_words <- unlist(strsplit(top_videos$video_tags, " ")) %>% tokenize()
+  tag_word_counts <- sort(table(tag_words), decreasing = TRUE)
+  
+  return(list(
+    names(title_word_counts)[1:25],
+    names(tag_word_counts)[1:25]
+  ))
+}
+
+common_words_list_rank <- get_top_words(cleaned_data, "rank")
+common_words_list_movement <- get_top_words(cleaned_data, "movement")
+```
+
+```{r}
+correct_spelling <- function(words) {
+  corrected_words <- unlist(sapply(words, function(word) {
+    suggestions <- hunspell_suggest(word)
+    if (length(suggestions) > 0) {
+      return(suggestions[[1]])  # Pick the first suggestion
+    } else {
+      return(word)  # Keep original word if no suggestion available
+    }
+  }))
+  return(sort(unique(corrected_words)))
+}
+
+
+merge_word_tuples <- function(tuple1, tuple2) {
+  title_words_combined <- unique(c(tuple1[[1]], tuple2[[1]]))
+  tag_words_combined <- unique(c(tuple1[[2]], tuple2[[2]]))
+  
+  return(list(
+    correct_spelling(title_words_combined),
+    correct_spelling(tag_words_combined)
+  ))
+}
+```
+
+```{r}
+final_results <- merge_word_tuples(common_words_list_rank, common_words_list_movement)
+final_title_words <- final_results[[1]]
+final_tag_words <- final_results[[2]]
+
+print(paste("Final Title:", length(final_title_words), toString(final_title_words)))
+print(paste("Final Tags:", length(final_tag_words), toString(final_tag_words)))
 ```
