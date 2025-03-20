@@ -1,0 +1,145 @@
+---
+title: "PCA"
+output: html_document
+date: "2025-03-20"
+---
+**For the next time this document is used:
+We need to do the following:
+1. Define trendiness (maybe daily_rank <10 for >5 days ? something like that?)
+2. Reduce the dataset with rows that abide to our definition of trendiness so that we are analyzing actually trendy videos, not all videos in our dataset
+3. Run PCA with a predictor variable (trendiness)
+
+
+
+```{r import libraries, include=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+```
+
+Import Dataset
+```{r import dataset}
+# Update this variable with the your own filepath
+data_filepath <- "/Users/ryandelft/Desktop/MOT143A Business Analytics/Group Project/Github Code/Dataset YT/trending_yt_videos_113_countries_cleaned.csv"
+
+#Import dataset
+dta_draw_from <- read.csv(data_filepath)
+```
+
+Create two dfs, one base and one to mess with & delete (numeric_df)
+```{r df to draw from}
+numeric_df <- dta_draw_from
+```
+
+See sample values
+```{r print head}
+head(numeric_df)
+```
+
+Change certain non-numeric columns to numeric columns (namely: title, country, channel_id, publish data, video_id)
+Will try to do: description; those will be more complicated, though
+Therefore excluding: channel_name (covered with channel_id) 
+Excluding due to null: language, video_tags
+
+Convert character to numeric
+```{r numeric conversion}
+#title
+numeric_df$title_numeric <- as.numeric(factor(dta_draw_from$title))
+
+#publish date
+numeric_df$date_numeric <- as.numeric(format(ymd_hms(dta_draw_from$publish_date), "%Y%m%d"))
+
+#country
+numeric_df$country_numeric <- as.numeric(factor(dta_draw_from$country))
+
+#channel_name
+numeric_df$channel_name_numeric <- as.numeric(factor(dta_draw_from$channel_name))
+
+#language (not including as there are too many nulls; will delete column)
+#numeric_df$primary_language_numeric <- as.numeric(as.factor(dta_draw_from$language))
+
+#video_id
+numeric_df$video_id_numeric <- as.numeric(as.factor(dta_draw_from$video_id))
+```
+
+Drop character columns already converted
+```{r drop character converted}
+#numeric_df <- numeric_df %>% select(-c(title, publish_date, country, channel_name, language, channel_id, video_id, video_tags))
+#numeric_df <- numeric_df %>% select(-c(primary_language_numeric))
+numeric_df <- numeric_df %>% select(-c(description))
+```
+
+Check nulls
+```{r check null}
+colSums(is.na(numeric_df))
+```
+Drop rows with nulls (currently 4 in title_numeric left)
+```{r drop null}
+numeric_df <- numeric_df %>% drop_na(title_numeric)
+colSums(is.na(numeric_df))
+```
+
+Standardize
+```{r standardize}
+dta_standardized <- scale(numeric_df[, !names(numeric_df) %in% "classe" ], center = TRUE, scale = TRUE)
+```
+
+Run PCA
+```{r pca}
+results <- prcomp(dta_standardized)
+summary(results)
+```
+
+See which variables are associated with each principle component
+```{r pca identification}
+print(results$rotation)
+```
+```{r pca visualization}
+library(ggplot2)
+
+visualization_df <- as.data.frame(results$rotation)
+visualization_df$variable <- rownames(visualization_df)
+
+ggplot(visualization_df, aes(x = variable, y = PC3)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Feature Importance in PC8")
+```
+
+```{r pca contribution again}
+library(factoextra)
+
+fviz_pca_var(results, col.var = "contrib")  # Contribution plot
+```
+From this, we can see the following variables contribute the most (6): like_count, view_count, comment_count, daily_rank, daily_movement, weekly_movement
+The ones contributing the least (5): country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric
+
+Drop insignificant columns
+```{r drop insignificant}
+#numeric_df <- numeric_df %>% select(-c(country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric))
+dim(numeric_df)
+```
+
+standardize again
+```{r standardize again}
+dta_standardized <- scale(numeric_df[, !names(numeric_df) %in% "classe" ], center = TRUE, scale = TRUE)
+```
+
+
+Run PCA again with this small df
+```{r PCA again}
+results <- prcomp(dta_standardized)
+summary(results)
+print(results$rotation)
+```
+
+```{r pca contribution}
+library(factoextra)
+
+fviz_pca_var(results, col.var = "contrib")  # Contribution plot
+```
+
+20-3-25 update: PCA was interesting; we can trim to PC4 but that was based on the entire dataset. For PC4, we'd keep daily_rank, daily_movement, weekly_movement, and comment_count. However, I think this needs to be redone with a smaller dataset of the videos we deem to be trendy. 
