@@ -3,7 +3,7 @@ title: "eda"
 output: html_document
 ---
 
-# Exploratory Data Analysis (incomplete notebook)
+# Exploratory Data Analysis
 
 As usual, we start with importing the required libraries and the dataset.
 
@@ -21,26 +21,28 @@ library(stringr)
 library(textTinyR)
 library(tm)
 library(hunspell)
+library(SnowballC)
 ```
 
 ```{r import data}
 
 data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"
 
-cleaned_data <- read.csv(data_filepath)
+# cleaned_data <- read.csv(data_filepath)
+cleaned_data <- read.csv(data_filepath, stringsAsFactors = FALSE)
 ```
 
 ## 1. Univariate Analysis
 
 The first step in EDA is "`Univariate analysis`" - in a nutshell - means that analysing each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
 
+### 1.1. Numerical Columns
+
 Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column and if its the intended type (eg `int` or `chr`) for that function, it will analyse that column and print the respective results.
 
 -   For `numerical columns` the function will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values`.
 
 -   For `categorical columns` the function will check for the `frequency counts` and plots a `bar graph`
-
--   For `text data` the function will calculate `number of words and character`, `most common words` and prints a `word cloud`.
 
 ```{r}
 analyze_numerical <- function(df) {
@@ -89,61 +91,32 @@ analyze_categorical <- function(df) {
 ```
 
 ```{r}
-analyze_text <- function(df) {
-  text_cols <- names(df)[sapply(df, function(x) is.character(x) & mean(nchar(x), na.rm = TRUE) > 30)]
-  cat("\nText Columns: ", text_cols, "\n")
-  for (col in text_cols) {
-    cat("\nColumn Name: ", col, "\n")
-    df[[col]] <- as.character(df[[col]])
-    df[[col]][is.na(df[[col]])] <- ""
-    
-    # Word and character count
-    # df$word_count <- sapply(strsplit(df[[col]], " "), length)
-    # df$char_count <- nchar(df[[col]])
-    # print(summary(df$word_count))
-    # print(summary(df$char_count))
-    
-    # Most common words
-    words <- unlist(strsplit(tolower(paste(df[[col]], collapse = " ")), " "))
-    words <- words[words != ""]
-    common_words <- sort(table(words), decreasing = TRUE)[1:10]
-    print(common_words)
-    
-    # Word Cloud
-    word_freq <- data.frame(word = names(common_words), freq = as.numeric(common_words))
-    wordcloud2(word_freq)
-    print("-------------------------------------------------------")
-  }
-}
-```
-
-```{r}
 analyze_numerical(cleaned_data)
 ```
 
 ```{r}
-analyze_text(cleaned_data)
+analyze_categorical(cleaned_data)
 ```
 
 ```{r}
 
 # a sample code from chatGPT to conduct Trend Analysis
 
-trend_analysis <- function(df, date_col, num_col, time_unit = "month") {
-  df <- df %>%
-    mutate(aggregated_date = floor_date(.data[[date_col]], unit = time_unit)) %>%  # Aggregate by time unit
-    group_by(aggregated_date) %>%
-    summarise(mean_value = mean(.data[[num_col]], na.rm = TRUE), .groups = "drop")
+#trend_analysis <- function(df, date_col, num_col, time_unit = "month") {
+#  df <- df %>%
+#    mutate(aggregated_date = floor_date(.data[[date_col]], unit = time_unit)) %>%# Aggregate by time unit
+#    group_by(aggregated_date) %>%
+#    summarise(mean_value = mean(.data[[num_col]], na.rm = TRUE), .groups = "drop")
   
-  ggplot(df, aes(x = aggregated_date, y = mean_value)) +
-    geom_line(color = "blue") +
-    geom_point(color = "red") +
-    geom_smooth(method = "loess", se = FALSE, color = "green") +
-    labs(title = paste("Trend Analysis of", num_col, "over Time"),
-         x = date_col,
-         y = paste("Average", num_col)) +
-    theme_minimal()
-}
+#  ggplot(df, aes(x = aggregated_date, y = mean_value)) +
+#    geom_line(color = "blue") +
+#    geom_point(color = "red") +
+#    geom_smooth(method = "loess", se = FALSE, color = "green") +
+#    labs(title = paste("Trend Analysis of", num_col, "over Time"),
+#         x = date_col,
+#         y = paste("Average", num_col)) +
+#    theme_minimal()
+#}
 
 # Example Usage
 # df <- data.frame(date = seq(as.Date("2024-01-01"), 
@@ -154,9 +127,15 @@ trend_analysis <- function(df, date_col, num_col, time_unit = "month") {
 # trend_analysis(df, "date", "value", "month")
 ```
 
-```{r}
+### 1.2. Text Columns
 
-# cleaned_df <- read.csv(data_filepath, stringsAsFactors = FALSE)
+-   For `text data` the function will calculate most commonly appearing words in the `title and video_tags` columns in the `top 10%` of the videos.
+
+-   Top 10% - based on `daily_rank, daily_movement and weekly_movement.` And merging the resultant vectors into one, while removing the common words between the 2 techniques and correcting the spelling using `hunspell` library to ensure we have the words that are meaningful.
+
+-   Further in the analysis, we can use this result as a feature to train the model - to be one of the factors that determine the trendliness of the video.
+
+```{r}
 
 stopwords_list <- stopwords("en")  # Define globally
 
@@ -200,16 +179,27 @@ common_words_list_movement <- get_top_words(cleaned_data, "movement")
 ```
 
 ```{r}
+normalize_word <- function(word) {
+  word <- tolower(word)  # Convert to lowercase
+  word <- gsub("[- ]", "", word)  # Remove hyphens and spaces
+  return(word)
+}
+
+stem_word <- function(word) {
+  return(SnowballC::wordStem(word, language = "en"))
+}
+
 correct_spelling <- function(words) {
-  corrected_words <- unlist(sapply(words, function(word) {
+  words <- unique(sapply(words, normalize_word))  # Normalize words first
+  corrected_words <- unique(unlist(sapply(words, function(word) {
     suggestions <- hunspell_suggest(word)
     if (length(suggestions) > 0) {
-      return(suggestions[[1]])  # Pick the first suggestion
+      return(suggestions[[1]][1])  # Pick the first suggestion
     } else {
       return(word)  # Keep original word if no suggestion available
     }
-  }))
-  return(sort(unique(corrected_words)))
+  })))
+  return(sort(corrected_words))
 }
 
 
@@ -232,3 +222,33 @@ final_tag_words <- final_results[[2]]
 print(paste("Final Title:", length(final_title_words), toString(final_title_words)))
 print(paste("Final Tags:", length(final_tag_words), toString(final_tag_words)))
 ```
+
+Finally, after God knows how many tries and annoying ChatGpt to help me migrate the codes😒, R was able to replicate the Python function to get the most commonly used words in the top 10% videos, with almost the same accuracy. Now we have 2 lists of words that we can use to introduce a synthetic column that in turn can be used as a feature to train the model.
+
+Logic of `title_score` and `video_tags_score` columns -\> Take the value in the cell (say 1st cell of title (or video_tags) column - "*Highlights Real Madrid vs Barcelona 3-1...*") and run the words separately through the list of words in `final_title_words` (or `final_tag_words`) and increase the count by 1 every time the word in the cell matches a word in the list. Example: The title "*Highlights Real Madrid vs Barcelona 3-1..."* will get a score of **3.**
+
+```{r}
+# Function to calculate title_score
+calculate_title_score <- function(title, word_list) {
+  words <- tokenize(title)
+  matches <- sapply(words, function(word) {
+    any(grepl(paste0("\\b", word, "\\b"), word_list, ignore.case = TRUE))
+  })
+  # Ensure matches is a numeric vector (TRUE -> 1, FALSE -> 0)
+  score <- sum(as.numeric(matches))
+  return(as.integer(score))
+}
+```
+
+```{r}
+# Apply function to create title_score column using vapply for type safety
+cleaned_data <- cleaned_data %>%
+  mutate(title_score = vapply(title, calculate_title_score, FUN.VALUE = integer(1), word_list = final_title_words))
+```
+
+```{r}
+cleaned_data <- cleaned_data %>%
+  mutate(video_tag_score = vapply(video_tags, calculate_title_score, FUN.VALUE = integer(1), word_list = final_tag_words))
+```
+
+This functions have not added a column with the intended purpose. Let's try to feed that into the model and see if its improving the performance.
