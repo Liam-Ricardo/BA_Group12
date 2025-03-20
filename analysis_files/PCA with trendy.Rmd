@@ -1,0 +1,159 @@
+---
+title: "PCA"
+output: html_document
+date: "2025-03-20"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+**We need to do the following:**
+
+1\. Define trendiness (maybe daily_rank \<10 for \>5 days ? something
+like that?)
+
+2\. Reduce the dataset with rows that abide to our definition of
+trendiness so that we are analyzing actually trendy videos, not all
+videos in our dataset
+
+```{r import libraries, include=FALSE}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+```
+
+Import Dataset
+
+```{r import dataset}
+# Update this variable with the your own filepath
+data_filepath <- "/Users/ryandelft/Desktop/MOT143A Business Analytics/Group Project/Github Code/Dataset YT/trending_yt_videos_113_countries_cleaned.csv"
+
+#Import dataset
+dta_draw_from <- read.csv(data_filepath)
+```
+
+See sample values
+
+```{r print head}
+#head(dta_draw_from)
+```
+
+```{r filter trendy videos}
+# trendy = daily rank of 10 or higher and a weekly movement of 5 or less
+trendy_df_numeric <- dta_draw_from %>%
+  filter(daily_rank >= 1 & daily_rank <= 10, weekly_movement < 5)
+
+head(trendy_df_numeric)
+```
+
+Change certain non-numeric columns to numeric columns (namely: title,
+country, channel_id, publish data, video_id) Will try to do:
+description; those will be more complicated, though Therefore excluding:
+channel_name (covered with channel_id) Excluding due to null: language,
+video_tags
+
+Convert character to numeric
+
+```{r numeric conversion}
+#title
+trendy_df_numeric$title_numeric <- as.numeric(factor(trendy_df_numeric$title))
+
+#publish date
+trendy_df_numeric$date_numeric <- as.numeric(format(ymd_hms(trendy_df_numeric$publish_date), "%Y%m%d"))
+
+#country
+trendy_df_numeric$country_numeric <- as.numeric(factor(trendy_df_numeric$country))
+
+#channel_name
+trendy_df_numeric$channel_name_numeric <- as.numeric(factor(trendy_df_numeric$channel_name))
+
+#language (not including as there are too many nulls; will delete column)
+#trendy_df_numeric$primary_language_numeric <- as.numeric(as.factor(trendy_df_numeric$language))
+
+#video_id
+trendy_df_numeric$video_id_numeric <- as.numeric(as.factor(trendy_df_numeric$video_id))
+```
+
+Drop character columns already converted
+
+```{r drop character converted}
+#trendy_df_numeric <- trendy_df_numeric %>% select(-c(title, publish_date, country, channel_name, language, channel_id, video_id, video_tags, description))
+#trendy_df_numeric <- trendy_df_numeric %>% select(-c(primary_language_numeric))
+```
+
+Check nulls
+
+```{r check null}
+colSums(is.na(trendy_df_numeric))
+```
+
+Drop rows with nulls (some in title)
+
+```{r drop null}
+trendy_df_numeric <- trendy_df_numeric %>% drop_na(title_numeric)
+colSums(is.na(trendy_df_numeric))
+```
+
+Standardize
+
+```{r standardize}
+trendy_standardized <- scale(trendy_df_numeric[, !names(trendy_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
+```
+
+Run PCA
+
+```{r pca}
+cat("\n====================== Principal Component Analysis of trendy_standardized =====================\n\n")
+results <- prcomp(trendy_standardized)
+summary(results)
+cat("\n================================================================================================\n")
+
+```
+
+Result: PC8 is 90.0%
+
+See which variables are associated with each principle component
+
+```{r pca identification}
+cat("\n====================== Principal Component Loadings =====================\n\n")
+print(results$rotation)
+cat("\n=========================================================================\n")
+```
+
+Findings for PC8 loadings: PC8 in order of absolute value: comment_count
+0.71, date_numeric 0.38, view_count 0.40, daily_movement 0.27,
+weekly_movement 0.17, channel_name_numeric 0.14, title_numeric 0.11 [end
+top 8]; daily_rank 0.09, country_numeric 0.08, video_id_numeric 0.05
+
+```{r pca visualization}
+library(ggplot2)
+
+visualization_df <- as.data.frame(results$rotation)
+visualization_df$variable <- rownames(visualization_df)
+
+ggplot(visualization_df, aes(x = variable, y = PC8)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Feature Importance in PC8")
+```
+
+```{r pca contribution again}
+library(factoextra)
+
+fviz_pca_var(results, col.var = "contrib")  # Contribution plot
+```
+
+From this, we can see the following variables contribute the most (6):
+like_count, view_count, comment_count, daily_rank, daily_movement,
+weekly_movement The ones contributing the least (5): country_numeric,
+title_numeric, channel_name_numeric, date_numeric, video_id_numeric
+
+Drop insignificant columns
+
+```{r drop insignificant}
+#dta_draw_from <- dta_draw_from %>% select(-c(country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric))
+#dim(dta_draw_from)
+```
