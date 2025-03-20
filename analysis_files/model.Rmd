@@ -1,0 +1,94 @@
+---
+title: "model"
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries_cleaned.csv"
+
+dta <- read.csv(destination_path)
+```
+
+```{r}
+# Convert title to a factor if it's categorical
+dta$title <- as.factor(dta$title)
+
+# Fit logistic regression
+logit_model <- glm(title ~ daily_rank, data = dta, family = binomial)
+
+# Check model summary
+summary(logit_model)
+
+# Plot the data
+plot(dta$daily_rank, as.numeric(dta$title) - 1, 
+     xlab = "Daily Rank", 
+     ylab = "Probability of Title",
+     pch = 4)
+
+# Add logistic regression curve
+curve(predict(logit_model, data.frame(daily_rank = x), type = "response"), 
+      add = TRUE, col = "blue", lwd = 2)
+
+```
+
+
+```{r}
+
+# Ensure publish_date is in Date format
+dta$publish_date <- as.Date(dta$publish_date)
+
+# Get the current date
+current_date <- Sys.Date()
+
+# Calculate video age in days
+dta$video_age <- as.numeric(difftime(current_date, dta$publish_date, units = "days"))
+
+
+
+```
+
+
+```{r}
+# Function to identify outliers using the IQR method
+# Compute Z-scores
+dta$z_score <- scale(dta$video_age)
+
+# Remove outliers (keeping only values with Z-score between -3 and 3)
+dta_clean <- dta %>% filter(abs(z_score) <= 3)
+dta <- dta[dta$video_age <= 84, ]
+summary(dta$video_age)
+
+
+#dta <- dta[!(dta$video_age %in% outliers$video_age), ]
+# Remove rows where video_age is greater than 100
+dta <- dta[dta$video_age <= 84, ]
+summary(dta$video_age)
+
+```
+
+
+```{r}
+
+# Fit logistic regression
+logit_model <- glm(video_age ~ daily_rank, data = dta_clean, family = poisson)
+
+# Check model summary
+summary(logit_model)
+
+# Plot the data
+plot(dta_clean$daily_rank, as.numeric(dta_clean$video_age) - 1, 
+     xlab = "Daily Rank", 
+     ylab = "Video Age",
+     pch = 4)
+
+# Add logistic regression curve
+curve(predict(logit_model, data.frame(daily_rank = x), type = "response"), 
+      add = TRUE, col = "blue", lwd = 2)
+```
+```{r}
+
+```
+

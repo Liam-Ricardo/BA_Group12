@@ -291,11 +291,11 @@ ggplot(country_avg_views %>% filter(country %in% top_countries), aes(x = country
 
 ```
 ```{r}
-ggplot(df_filtered, aes(x = daily_rank, y = view_count/10^6, color = country)) +
+ggplot(df_filtered, aes(x = daily_movement, y = view_count/10^6, color = country)) +
   geom_point() +
   facet_wrap(~ country) +
   labs(title = "Daily Rank vs View Count for Top 10% Countries",
-       x = "Daily Rank",
+       x = "Daily Movement",
        y = "View Count(Millions)") +
   theme_minimal()
 ```
@@ -394,7 +394,7 @@ cor_matrix <- df %>%
 
 print(cor_matrix)
 
-
+#test
 ```
 This is already a nice overview but ofcourse we cannot conclude anything yet, we need the significance of the these relationships as well. The data seems non-normal distributed but lets make sure so we use the right significance testing.
 ```{r}
@@ -427,13 +427,13 @@ numerical_vars <- c("view_count", "like_count", "comment_count", "country_numeri
 cor_results <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
 
 # Loop through each variable and compute correlation with daily_rank
-for (var in numerical_vars) {
-  test <- cor.test(df[[var]], df$daily_rank, method = "pearson", use = "complete.obs")
-  cor_results <- rbind(cor_results, data.frame(Variable = var, Correlation = test$estimate, P_Value = test$p.value))
-}
+#for (var in numerical_vars) {
+#  test <- cor.test(df[[var]], df$daily_rank, method = "pearson", use = "complete.obs")
+#  cor_results <- rbind(cor_results, data.frame(Variable = var, Correlation = test$estimate, P_Value = test$p.value))
+#}
 
 # View the results
-print(cor_results)
+#print(cor_results)
 
 ```
 
