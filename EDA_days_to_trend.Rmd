@@ -1,0 +1,139 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Trying some feature engineering here.
+
+path = "D:/Netherlands/TU DELFT/Q3 2024/Business Analytics/R/trending_yt_videos_113_countries.csv"
+```
+
+
+```{r setup, include=FALSE}
+data <- read.csv(path)
+#names(data)
+```
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+library(lubridate)
+# Convert dates and calculate days_to_trend
+data_clean <- data %>%
+  # Handle different datetime formats (adjust based on your data's format)
+  mutate(
+    # Convert publish date (common YouTube format: "2023-01-15T14:30:15Z")
+    publish_date = as.Date(ymd_hms(publish_date)),
+    
+    # Convert snapshot date (common format: "2023-01-20")
+    snapshot_date = as.Date(snapshot_date),
+    
+    # Calculate days between trending and publish dates
+    days_to_trend = as.numeric(snapshot_date - publish_date)
+  ) %>%
+  
+  # Handle invalid date calculations
+  mutate(
+    days_to_trend = case_when(
+      days_to_trend < 0 ~ NA_real_,   # Invalid if trending before publishing
+      is.na(days_to_trend) ~ NA_real_,# Preserve existing NAs
+      TRUE ~ days_to_trend
+    ))
+```
+
+
+```{r}
+library(ggplot2)
+
+# Distribution of days_to_trend
+ggplot(data_clean, aes(x = days_to_trend)) +
+  geom_histogram(bins = 30, fill = "#1f77b4") +
+  labs(title = "Distribution of Days to Trend", x = "Days", y = "Count")
+# Check results
+summary(data_clean$days_to_trend)
+head(select(data_clean, publish_date, snapshot_date, days_to_trend))
+
+```
+```{r}
+# Median days_to_trend by category of language
+category_summary <- data_clean %>%
+  group_by(langauge) %>%
+  summarise(median_days = median(days_to_trend, na.rm = TRUE)) %>%
+  arrange(median_days)
+
+# Plot
+ggplot(category_summary, aes(x = reorder(langauge, median_days), y = median_days)) +
+  geom_bar(stat = "identity", fill = "#ff7f0e") +
+  coord_flip() +
+  labs(title = "Median Days to Trend by Language", x = "Language", y = "Days")
+```
+```{r}
+# Calculate engagement ratios
+data_clean <- data_clean %>%
+  mutate(
+    like_ratio = like_count / view_count,
+    comment_ratio = comment_count / view_count,
+  )
+
+# Correlation between like_ratio and days_to_trend
+ggplot(data_clean, aes(x = like_ratio, y = days_to_trend)) +
+  geom_point(alpha = 0.3, color = "#d62728") +
+  geom_smooth(method = "lm") +
+  labs(title = "Likes/Views Ratio vs. Days to Trend", x = "Like/View Ratio", y = "Days")
+```
+```{r}
+# Add publish day of week
+data_clean <- data_clean %>%
+  mutate(publish_day = weekdays(publish_date))
+
+# Median days_to_trend by publish day
+day_summary <- data_clean %>%
+  group_by(publish_day) %>%
+  summarise(median_days = median(days_to_trend, na.rm = TRUE))
+
+ggplot(day_summary, aes(x = factor(publish_day, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")), y = median_days)) +
+  geom_bar(stat = "identity", fill = "#9467bd") +
+  labs(title = "Days to Trend by Publish Day", x = "Day", y = "Median Days")
+```
+```{r}
+# Add publish day of week
+data_clean <- data %>%
+  filter(!is.na(publish_date))
+
+# If it's "character", re-convert dates:
+data_clean <- data_clean %>%
+  mutate(
+    publish_date = as.Date(publish_date, format = "%Y-%m-%d")  # Adjust format to match your data
+  )
+  mutate(publish_day = weekdays(publish_date))
+  
+# # Check the class of publish_date
+# class(data_clean$publish_date)  # Should return "Date"
+
+
+# Median days_to_trend by publish day
+day_summary <- data_clean %>%
+  group_by(publish_day) %>%
+  summarise(median_days = median(days_to_trend, na.rm = TRUE))
+
+table(data_clean$publish_day)
+
+ggplot(day_summary, aes(x = factor(publish_day, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")), y = median_days)) +
+  geom_bar(stat = "identity", fill = "#9467bd") +
+  labs(title = "Days to Trend by Publish Day", x = "Day", y = "Median Days")
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
