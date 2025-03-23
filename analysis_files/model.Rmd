@@ -12,7 +12,23 @@ destination_path = "C:/Users/LRJPu/OneDrive - Delft University of Technology/Doc
 dta <- read.csv(destination_path)
 ```
 
-```{r}
+```{r Load necessary libraries}
+library(dplyr)
+library(caret)
+library(randomForest)
+```
+```{r extra cleaning}
+#removing leading/trailing white spaces from characer columns
+dta <- dta %>% mutate(across(where(is.character), trimws))
+#replace empty strings with NA
+dta <- dta %>% mutate(across(where(is.character), ~na_if(., "")))
+dta$country <- as.factor(dta$country)
+dta <- na.omit(dta)
+
+```
+
+
+```{r logistic regression curve 1}
 # Convert title to a factor if it's categorical
 dta$title <- as.factor(dta$title)
 
@@ -35,7 +51,7 @@ curve(predict(logit_model, data.frame(daily_rank = x), type = "response"),
 ```
 
 
-```{r}
+```{r calc video age}
 
 # Ensure publish_date is in Date format
 dta$publish_date <- as.Date(dta$publish_date)
@@ -51,7 +67,7 @@ dta$video_age <- as.numeric(difftime(current_date, dta$publish_date, units = "da
 ```
 
 
-```{r}
+```{r removing outliers}
 # Function to identify outliers using the IQR method
 # Compute Z-scores
 dta$z_score <- scale(dta$video_age)
@@ -70,7 +86,7 @@ summary(dta$video_age)
 ```
 
 
-```{r}
+```{r logostic regression 2}
 
 # Fit logistic regression
 logit_model <- glm(video_age ~ daily_rank, data = dta_clean, family = poisson)
@@ -88,7 +104,78 @@ plot(dta_clean$daily_rank, as.numeric(dta_clean$video_age) - 1,
 curve(predict(logit_model, data.frame(daily_rank = x), type = "response"), 
       add = TRUE, col = "blue", lwd = 2)
 ```
+
+```{r creating factors of variables/columns}
+#we might want to bin daily_rank into categories "Top 10", "11-20", "21-30", "31+" but for now im using the existing values to factors
+dta$daily_rank <- as.factor(dta$daily_rank)
+
+factor_vars <- c("country", "description", "channel_name", "title", "video_tags")
+df <- df %>% mutate(across(factor_vars, as.factor))
+remove(factor_vars)
+#str(dta)
+```
+
+```{r 1 tree training_testing}
+set.seed(123) # for reproducibility
+
+proportion <- 0.7 # 70/30 split to start with
+split <- rsample::initial_split(dta, prop = proportion)
+training <- training(split)
+testing <- testing(split)
+```
+
+```{r 1 tree verifying dimensions}
+cat("Dimensions of training data:", dim(training), "\n")
+cat("Dimensions of testing data:", dim(testing), "\n")
+```
+
+
+```{r 1 decision tree training}
+model <- C50::C5.0(daily_rank ~., 
+                   data = training)
+summary(model)
+```
+```{r 1 tree prediction on test dataset}
+predictions <- predict(model, newdata = testing, type = "class")
+#evaluating the model
+confusionMatrix(predictions, testing$daily_rank)
+```
+
+
+
+```{r RandomForest combining trees setup}
+#setup parameters
+iterations <- 10 # how many trees do you want to estimate?
+randomize <- FALSE # use a randomly selected set of predictor variables?
+min_randomize <- 2 # if randomize is set to TRUE, how many predictor variables do you want to sample (min = 2, max = 5)
+
+# Split tree_credit in training and testing set
+split <- rsample::initial_split(dta, prop = proportion)
+training <- training(split)
+testing <- testing(split)
+
+
+```
+
+
 ```{r}
+# Make predictions for multiple trees
+for (i in seq(iterations)) {
+    if (isFALSE(randomize)) {
+        tmp <- training(rsample::initial_split(training, prop = proportion))
+        model <- C50::C5.0(dta$daily_rank ~., 
+                           data = tmp)
+        testing <- cbind(testing, data.frame(predict(model, testing)))
+    } else {
+        tmp <- training(rsample::initial_split(training, prop = proportion))
+        names <- names(tmp)[ -which(names(tmp) %in% "Credit.rating") ]
+        names <- sample(names, sample(min_randomize:length(names), 1))
+        tmp <- cbind(Credit.rating = tmp$Credit.rating, tmp[ names ])
+        model <- C50::C5.0(Credit.rating ~., 
+                           data = tmp)
+        testing <- cbind(testing, data.frame(predict(model, testing)))
+    }
+}
 
 ```
 
