@@ -1,0 +1,129 @@
+```{r}
+# Load required libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+# Load dataset (replace with actual file path)
+```
+
+
+```{r}
+youtube_data <- read.csv("C:/Users/keert/OneDrive/Desktop/Business Analytics - Tutorials/trending_yt_videos_113_countries_cleaned.csv")
+
+# View first few rows
+head(youtube_data)
+
+# Check for missing values
+colSums(is.na(youtube_data))
+
+# Summary statistics
+summary(youtube_data)
+```
+
+```{r}
+set.seed(123)
+```
+
+```{r}
+colnames(youtube_data)
+```
+```{r}
+# Define engagement score (like-to-view ratio)
+youtube_data$engagement_score <- youtube_data$like_count / youtube_data$view_count
+
+# Define trendiness as a function of engagement and movement
+youtube_data$trendiness <- ifelse(youtube_data$engagement_score > 0.05 & youtube_data$daily_movement > 0, 1, 0)
+
+# Convert trendiness to a factor for classification
+youtube_data$trendiness <- as.factor(youtube_data$trendiness)
+
+# Check distribution
+table(youtube_data$trendiness)
+```
+
+
+
+
+
+
+```{r}
+# Convert target variable to factor (classification task)
+youtube_data$trendiness <- as.factor(youtube_data$trendiness)
+
+# Select features for modeling
+features <- c("view_count", "like_count", "comment_count", 
+              "daily_rank", "daily_movement", "weekly_movement")
+
+# Define training dataset
+X <- youtube_data[, features]
+y <- youtube_data$trendiness
+```
+
+
+```{r}
+# Create train-test split 
+set.seed(123)
+trainIndex <- createDataPartition(y, p = 0.7, list = FALSE)
+X_train <- X[trainIndex, ]
+X_test <- X[-trainIndex, ]
+y_train <- y[trainIndex]
+y_test <- y[-trainIndex]
+```
+
+```{r}
+summary(log_model)
+```
+`
+
+```{r}
+# Logistic Regression Model
+#log_model <- train(X_train, y_train, method = "glm", family = "binomial")
+
+# Predict on test data
+#log_preds <- predict(log_model, X_test)
+
+# Evaluate model performance
+#conf_matrix_log <- confusionMatrix(log_preds, y_test)
+#conf_matrix_log
+
+#warning in Logistic regression - Warning: glm.fit: fitted probabilities numerically 0 or 1 occurredWarning: 
+#this occurs when there are clear separation between variables.
+
+
+```{r}
+library(randomForest)
+```
+
+```{r}
+set.seed(123)  # Ensure reproducibility
+sample_index <- sample(nrow(youtube_data), size = 0.1 * nrow(youtube_data))  # 10% sample
+youtube_sample <- youtube_data[sample_index, ]
+
+# Convert 'trendiness' to a factor for classification
+youtube_data$trendiness <- as.factor(youtube_data$trendiness)
+
+# Train Random Forest Model (Classification)
+rf_model <- randomForest(trendiness ~ view_count + like_count + comment_count + daily_rank + daily_movement + weekly_movement,
+                         data = youtube_data, ntree = 100)
+
+```
+
+```{r}
+# Print the Random Forest Model Summary
+print(rf_model)
+```
+
+
+```{r}
+library(caret)
+```
+
+```{r}
+# Predict using the test set
+rf_preds <- predict(rf_model, X_test)
+
+# Confusion Matrix and Model Evaluation
+confusionMatrix(rf_preds, y_test)
+```
+
