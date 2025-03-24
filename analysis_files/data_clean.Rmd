@@ -190,11 +190,11 @@ unique_values_table <- check_unique_values(cleaned_df)
 print(unique_values_table)
 ```
 
-For now, we will drop the columns - `snapshot_date`, `thumbnail_url`, `kind`. Later, based on the further analysis, we can come back and drop more columns if needed.
+For now, we will drop the columns - ~~`snapshot_date`~~, `thumbnail_url`, `kind`. Later, based on the further analysis, we can come back and drop more columns if needed.
 
 ```{r}
 print(dim(cleaned_df))
-cleaned_df <- cleaned_df %>% select(-c(snapshot_date, thumbnail_url, kind))
+cleaned_df <- cleaned_df %>% select(-c(thumbnail_url, kind))
 print(dim(cleaned_df))
 ```
 
@@ -258,5 +258,7 @@ That brings us to the end of the data cleaning part. Any more cleaning, clusteri
 > *I think I'm getting used to R now, but still Python rules! - ShR (1st March 2025 - 12:09)*
 >
 > *Okay, this is getting nicer. But why can't I use Python (Frown face) - ShR (11th March 2025 - 16.51)*
+>
+> *Nope, I take it back. R is not getting better. Yesterday, I was able to write an NLP logic in Python in under 15 minutes. But, couldn't achieve the same level of accuracy in R without using ChatGpt (Angry Frown Face) - ShR (19th March 2025 - 14:03)*
 
 ------------------------------------------------------------------------

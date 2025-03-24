@@ -59,7 +59,33 @@ For our Business case of Predicting Video Trendiness we should define "trendines
 - from grouping it follows that we have 113 Countries with an average of 24275.21 instances
 - the ranking seems to be per country? so we have multiple top 5 etc
 
-This was a quick overview of the data and some insights we have seen during cleaning as well. Now let's explore some of the variables further. Let us do a univariate Exploratory Data Analysis (EDA). To start, let's find out why the ''country'' column in our cleaned dataset has only 2 character long inputs.
+This was a quick overview of the data and some insights we have seen during cleaning as well. Now let's explore some of the variables further. Let us do a univariate Exploratory Data Analysis (EDA). To start, let's find out why the column "langauge" why does it seem to have 1)empty values, 2)different type of values e.g.: "zh-TW", or "ja",or "en-US"
+```{r}
+print(df$language[0:5])
+```
+```{r}
+# Remove leading/trailing whitespace
+df$language <- trimws(df$language)
+
+# Replace empty strings with NA
+df$language[df$langauge == ""] <- NA
+
+# Extract the primary language code
+df$primary_language <- sub("-.*", "", df$language)
+
+#creating a new column for regional variants (if needed)
+df$region <- sub("^[^-]*-?", "", df$language)
+df$region[df$region == ""] <- NA
+
+#analyze the distribution
+table(df$primary_language, useNA = "ifany")
+table(df$region, useNA = "ifany")
+
+
+```
+As visible in the table above there are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we should consider A) not including this variable or B) estimating or creating a proxy
+
+Let's continue with some data preparation the ''country'' column in our cleaned dataset has only 2 character long inputs.
 ```{r}
 print(df$country[1])
 
@@ -148,7 +174,7 @@ top_countries_video_count <- country_counts %>%
 
 # 4. Filter the original dataframe to include only the top countries
 df_filtered <- df %>%
-  filter(country %in% top_countries)
+  filter(country %in% num_top_countries)
 
 # --- DIAGNOSTIC: Check the daily_rank values ---
 print("Summary of daily_rank after filtering:")
@@ -265,12 +291,12 @@ ggplot(country_avg_views %>% filter(country %in% top_countries), aes(x = country
 
 ```
 ```{r}
-ggplot(df_filtered, aes(x = view_count, y = daily_rank, color = country)) +
+ggplot(df_filtered, aes(x = daily_movement, y = view_count/10^6, color = country)) +
   geom_point() +
   facet_wrap(~ country) +
   labs(title = "Daily Rank vs View Count for Top 10% Countries",
-       x = "View Count",
-       y = "Daily Rank") +
+       x = "Daily Movement",
+       y = "View Count(Millions)") +
   theme_minimal()
 ```
 
@@ -351,18 +377,24 @@ print(cor_matrix)
 ```
 I would like to also include the following non-numerical columns: country,primary_language, channel_name
 ```{r}
-#label encoding
-df$country_numeric <- as.numeric(factor(df$country))
-df$primary_language_numeric <- as.numeric(factor(df$primary_language))
-df$channel_name_numeric <- as.numeric(factor(df$channel_name))
+library(dplyr)
 
-#re-do correlation analysis
+# Frequency encoding
+df <- df %>%
+  mutate(
+    country_numeric = as.numeric(factor(country, levels = names(sort(table(country), decreasing = TRUE)))),
+    primary_language_numeric = as.numeric(factor(primary_language, levels = names(sort(table(primary_language), decreasing = TRUE)))),
+    channel_name_numeric = as.numeric(factor(channel_name, levels = names(sort(table(channel_name), decreasing = TRUE))))
+  )
+
+# Compute correlation matrix
 cor_matrix <- df %>%
   select(view_count, like_count, comment_count, daily_rank, country_numeric, primary_language_numeric, channel_name_numeric) %>%
   cor(use = "complete.obs")
+
 print(cor_matrix)
 
-
+#test
 ```
 This is already a nice overview but ofcourse we cannot conclude anything yet, we need the significance of the these relationships as well. The data seems non-normal distributed but lets make sure so we use the right significance testing.
 ```{r}
@@ -395,42 +427,15 @@ numerical_vars <- c("view_count", "like_count", "comment_count", "country_numeri
 cor_results <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
 
 # Loop through each variable and compute correlation with daily_rank
-for (var in numerical_vars) {
-  test <- cor.test(df[[var]], df$daily_rank, method = "pearson", use = "complete.obs")
-  cor_results <- rbind(cor_results, data.frame(Variable = var, Correlation = test$estimate, P_Value = test$p.value))
-}
+#for (var in numerical_vars) {
+#  test <- cor.test(df[[var]], df$daily_rank, method = "pearson", use = "complete.obs")
+#  cor_results <- rbind(cor_results, data.frame(Variable = var, Correlation = test$estimate, P_Value = test$p.value))
+#}
 
 # View the results
-print(cor_results)
+#print(cor_results)
 
 ```
-
-
-Let's continue with some data preparation the column "langauge" why does it seem to have 1)empty values, 2)different type of values e.g.: "zh-TW", or "ja",or "en-US"
-```{r}
-print(df$langauge[0:5])
-```
-```{r}
-# Remove leading/trailing whitespace
-df$langauge <- trimws(df$langauge)
-
-# Replace empty strings with NA
-df$langauge[df$langauge == ""] <- NA
-
-# Extract the primary language code
-df$primary_language <- sub("-.*", "", df$langauge)
-
-#creating a new column for regional variants (if needed)
-df$region <- sub("^[^-]*-?", "", df$langauge)
-df$region[df$region == ""] <- NA
-
-#analyze the distribution
-table(df$primary_language, useNA = "ifany")
-table(df$region, useNA = "ifany")
-
-
-```
-As visible in the table above there are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we should consider A) not including this variable or B) estimating or creating a proxy
 
 
 #Questions n.a.v. EDA
