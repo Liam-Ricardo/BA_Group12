@@ -251,4 +251,4 @@ cleaned_data <- cleaned_data %>%
   mutate(video_tag_score = vapply(video_tags, calculate_title_score, FUN.VALUE = integer(1), word_list = final_tag_words))
 ```
 
-This functions have not added a column with the intended purpose. Let's try to feed that into the model and see if its improving the performance.
+This functions have added a column with the intended purpose. Let's try to feed that into the model and see if its improving the performance.

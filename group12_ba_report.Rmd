@@ -1,0 +1,594 @@
+---
+title: "group12_ba_report"
+output: html_document
+---
+
+# MOT122A - Business Analytics Group Assignment
+
+## Overview
+
+### Problem Statement
+
+Predicting Video Trendiness: Identify factors that contribute to a video's likelihood of trending on YouTube. Businesses and content creators could use this to optimize their video content and publishing strategies.
+
+### Dataset
+
+We are using the dataset from Kaggle - [Trending Youtube Video Statistics (113 Countries)](https://www.kaggle.com/datasets/asaniczka/trending-youtube-videos-113-countries). Top 50 latest trending videos on YouTube across 113 countries. With **daily updates**, this dataset provides comprehensive information about the top trending videos, including daily rankings, movement trends, view counts, likes, comments, and more.
+
+------------------------------------------------------------------------
+
+## Data Cleaning
+
+### 1. Importing the required libraries
+
+Only use this cells to import all the required libraries. DO NOT import the libraries in any other cells below, it helps with maintaining the code properly and enhances the readability of the code. If you don't want anyone else to update any imports, please mention that in a **comment** next to it (see the example provided in line 1)
+
+```{r import_libraries, include=FALSE}
+library(dplyr) 
+library(tidyr) 
+library(stringr) 
+library(lubridate)
+library(ggplot2)
+library(textTinyR)
+library(tm)
+library(hunspell)
+library(SnowballC)
+library(factoextra)
+```
+
+Now that we have all the required libraries imported, let's dive into analyzing the dataset and train a ML model to classify the video as a Trending video or not. First let's start by importing the dataset and cleaning it.
+
+#### Import Dataset
+
+This cell imports the raw data. Since the data is too large for `GitHub` we can only use the data in our local system. So, please make sure you update the `filepath` with your own path before proceeding further in the notebook.
+
+```{r import_dataset}
+# Update this variable with the your own filepath
+data_filepath <- ""
+
+#Import dataset
+raw_data <- read.csv(data_filepath)
+```
+
+### 2. Inspecting the raw data
+
+We are just performing an initial check on the raw data. We do not manipulate any data points here. The main aim is to understand the raw data. First, we will check the structure of the data.
+
+```{r str_dataset}
+# Structure of the dataset 
+str(raw_data)
+```
+
+As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check `terminal` output for better readability]*
+
+```{r summary_dataset}
+# Summary statistics 
+summary(raw_data)
+```
+
+After we got a glimpse, of what we have in hand in the raw data. Let's visualize it in the table format and soak in the beauty. *[Tip: Use the arrows to navigate to other columns]*
+
+```{r head_dataset}
+# First few rows 
+head(raw_data)
+```
+
+Now, its time to understand how many rows and columns we have in the raw data. Trust me, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come handy. And post the data pre-processing, it always a good practice to compare the final model training dataset with the raw data.
+
+```{r dimensions_dataset}
+# Dimensions of the dataset 
+dim(raw_data)
+```
+
+**Summary**
+
+1.  We have 2,720,499 rows and 18 columns in our dataset
+
+2.  12 `char` (non-numerical) columns and 6 `int` (numerical) columns
+
+3.  The `int` column seems to be properly formatted (i.e. without any `str` in between)
+
+### 3. Data Pre-Processing
+
+In this step, we will clean the raw data as much as possible, so that it is EDA ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
+
+*It's just I like to keep a copy of all the versions of data. So, I'm making a copy of the raw_data into a new variable called `'cleaned_data'`. And I will use that moving forward. If you don't prefer that way, DO NOT run this cell.*
+
+```{r copy_dataset}
+# cleaned_data <- raw_data
+```
+
+#### 3.1. Standardizing column names and removing duplicate values
+
+Let's define a user-defined function (`udf`) to do the initial cleaning of the dataset.
+
+```{r udf_std_colnames}
+clean_data <- function(df){      
+  # Standardize column names   
+  cleaned_data <- df %>% rename_all(tolower) %>% rename_all(str_replace_all, pattern = " ", replacement = "_")      
+  # Remove duplicate rows   
+  df <- df %>% distinct()      
+  # Correcting the spelling   
+  colnames(df)[colnames(df) == "langauge"] <- "language"      
+  return(df) 
+}
+```
+
+```{r}
+cleaned_df <- clean_data(cleaned_data)  
+head(cleaned_df)
+```
+
+As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset, didn't have any duplicate values. So, Yayyy!
+
+#### 3.2. Tidy up the non-numerical columns
+
+The non-numerical columns tend to have special characters (like \$, %, etc.) that might not be useful for us. Also, it might contain some ASCII or Unicode characters as well (such as `"\n"`) that might be interfering with the readability and analysis of the values. So, its better to treat them by removing them from our dataset.
+
+```{r udf_clean_char_cols}
+clean_character_columns <- function(df) {   
+  df <- df %>%     
+    mutate(across(where(is.character), ~ {       
+      cleaned_text <- str_squish(str_replace_all(., "\\p{C}+", ""))       
+      ifelse(cleaned_text == "", NA, cleaned_text)     
+    }))      
+  return(df) 
+}
+```
+
+```{r}
+cleaned_df <- clean_character_columns(cleaned_df)
+head(cleaned_df)
+```
+
+Here, the function `clean_character_columns` checks if the column is of type `character` and removes all the Unicode chars (such as `"\n","\r","\t"`). Finally, it trims the leading, trailing and extra spaces with the `str_squish(.)` function.
+
+#### 3.3. Null value treatment
+
+Now, its time to treat the null values. First, let's define a `udf` to analyse the data and fetch us how many null values are present in each column.
+
+```{r udf_null_value}
+analyze_columns <- function(df) {   
+  calculate_mode <- function(x) {     
+    unique_x <- unique(na.omit(x))     
+    tabulated <- tabulate(match(x, unique_x))     
+    unique_x[which.max(tabulated)]   
+  }      
+  # Create summary statistics for each column   
+  summary_table <- data.frame(     
+    `column_type` = sapply(df, typeof),     
+    `number_of_nulls` = sapply(df, function(x) sum(is.na(x))),     
+    `%_nulls` = sapply(df, function(x) round(sum(is.na(x)) / length(x) * 100, 2)),     
+    `mean` = sapply(df, function(x) if (is.numeric(x)) round(mean(x, na.rm = TRUE), 2) else 0),     
+    `median` = sapply(df, function(x) if (is.numeric(x)) round(median(x, na.rm = TRUE), 2) else 0),     
+    `min` = sapply(df, function(x) if (is.numeric(x)) round(min(x, na.rm = TRUE), 2) else 0),     
+    `max` = sapply(df, function(x) if (is.numeric(x)) round(max(x, na.rm = TRUE), 2) else 0),     
+    `mode` = sapply(df, function(x) if (is.numeric(x) | is.character(x) | is.factor(x)) calculate_mode(x) else "N/A"), stringsAsFactors = FALSE     
+  )      
+  return(summary_table) 
+}
+```
+
+```{r}
+null_df <- analyze_columns(cleaned_df) 
+print(null_df)
+```
+
+So, the columns - `description`, `video_tags` and `language` have null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that has null values, but we will decide this after/during feature selection step - to ensure we are not losing any valuable data.
+
+#### 3.4. Dropping Unnecessary columns
+
+We will do a premilinary feature engineering, by dropping unnecessary columns and the columns that might not be useful based on the subject knowledge. Some basic conditions for determining not-so-useful columns are:
+
+1.  Columns with more than 75% null values
+2.  Columns with only 1 unique values
+3.  Entire column/row being null
+
+Now let's check the number of unique values and drop the columns with only 1 unique value.
+
+```{r udf_check_unique_values}
+check_unique_values <- function(df) {   
+  unique_counts <- sapply(df, function(col) length(unique(col)))      
+  return(cbind(Unique_Values = unique_counts)) 
+}
+```
+
+```{r}
+unique_values_table <- check_unique_values(cleaned_df) 
+print(unique_values_table)
+```
+
+For now, we will drop the columns - ~~`snapshot_date`~~, `thumbnail_url`, `kind`. Later, based on the further analysis, we can come back and drop more columns if needed.
+
+```{r drop_unnecessary_cols}
+cleaned_df <- cleaned_df %>% select(-c(thumbnail_url, kind)) 
+print(dim(cleaned_df))
+```
+
+#### 3.5. Outlier identification
+
+Next, we will check for outliers in the numerical column of our dataset. We can do this in 2 different ways. 1 - Visually using box plots and 2nd using the IQR, where we calculate the upper and lower boundary of the column (anything outside this boundary is an outlier). Now, we will just detect if there are any outliers using the 2nd method. *[Note: The visual inspection of outliers will be carried out during the EDA].*
+
+We start by defining a `udf` to give us the report on the outliers based on the IQR calculation of each numerical column.
+
+```{r udf_detect_outliers}
+detect_outliers <- function(df) {
+  numeric_cols <- df %>% 
+    select(where(is.numeric))
+  outlier_summary <- data.frame(column = character(), lower_bound = numeric(), 
+                                upper_bound = numeric(), num_outliers = integer(), 
+                                iqr = numeric(), q1 = numeric(), q3 = numeric())
+                                
+  for (col in colnames(numeric_cols)) {
+    q1 <- quantile(numeric_cols[[col]], 0.25, na.rm = TRUE)
+    q3 <- quantile(numeric_cols[[col]], 0.75, na.rm = TRUE)
+    iqr_value <- q3 - q1
+    lower_limit <- q1 - 1.5 * iqr_value
+    upper_limit <- q3 + 1.5 * iqr_value
+    num_of_outliers <- sum(numeric_cols[[col]] < lower_limit | numeric_cols[[col]] > upper_limit, na.rm = TRUE)
+    
+    outlier_summary <- rbind(outlier_summary, data.frame(column = col, lower_bound = lower_limit, 
+                                                         upper_bound = upper_limit, num_outliers = num_of_outliers, 
+                                                         iqr = iqr_value, q1 = q1, q3 = q3))
+  }
+  return(outlier_summary)
+}
+```
+
+```{r}
+outlier_report <- detect_outliers(cleaned_df)
+print(outlier_report)
+```
+
+<!--# Ryan please update the summary for this part -->
+
+<!--# Also, should we move the outlier detection and treatment to EDA (or) keep it here? -->
+
+### 4. Export the cleaned data
+
+Finally, let's export the cleaned data. So, that we can use a different notebook to perform the EDA. This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
+
+```{r udf_export_dataset}
+export_data <- function(df, input_filepath){   
+  output_filepath <- sub(".csv","_cleaned.csv",input_filepath)   
+  write.csv(df, output_filepath, row.names = FALSE) 
+}
+```
+
+```{r}
+export_data(cleaned_df, data_filepath)
+```
+
+That brings us to the end of the data cleaning part. Any more cleaning, clustering, merging or separation of the dataset(s) will happen in the next step(s).
+
+```{r}
+# This block removes all the elements from your environment 
+# remove(list = ls())
+```
+
+------------------------------------------------------------------------
+
+## Exploratory Data Analysis
+
+### 1. Univariate Analysis
+
+The first step in EDA is "`Univariate analysis`" - in a nutshell - means that analysing each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
+
+#### 1.1. Numerical & Categorical Columns
+
+Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column and if its the intended type (eg `int` or `chr`) for that function, it will analyse that column and print the respective results.
+
+-   For `numerical columns` the function will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values`.
+
+-   For `categorical columns` the function will check for the `frequency counts` and plots a `bar graph`
+
+```{r udf_analyse_numerical_cols}
+analyze_numerical <- function(df) {
+  numerical_cols <- names(df)[sapply(df, is.numeric)]
+  
+  for (col in numerical_cols) {
+    cat("\nColumn Name: ", col, "\n")
+    print(summary(df[[col]]))
+    cat("Skewness:", e1071::skewness(df[[col]], na.rm = TRUE), "\n")
+    cat("Kurtosis:", e1071::kurtosis(df[[col]], na.rm = TRUE), "\n")
+    print("-------------------------------------------------------")
+    
+    # Visualizations
+    pic_1 <- ggplot(df, aes(x = .data[[col]])) + 
+      geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.5) +
+      geom_density(color = "red") +
+      ggtitle(paste("Histogram of", col))
+    
+    pic_1 <- ggplot(df, aes(y = .data[[col]])) + 
+      geom_boxplot(fill = "orange", alpha = 0.5) +
+      ggtitle(paste("Boxplot of", col))
+    
+    print(pic_1)
+    print(pic_1)
+  }
+}
+```
+
+```{r udf_analyse_cat_cols}
+analyze_categorical <- function(df) {
+  categorical_cols <- names(df)[sapply(df, is.character) | sapply(df, is.factor)]
+  
+  for (col in categorical_cols) {
+    cat("\nColumn Name: ", col, "\n")
+    print(table(df[[col]]))
+    
+    # Visualization
+    pic <- ggplot(df, aes(x = .data[[col]])) + 
+      geom_bar(fill = "blue", alpha = 0.5) +
+      ggtitle(paste("Bar Plot of", col)) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    print(pic)
+    print("-------------------------------------------------------")
+  }
+}
+```
+
+```{r}
+analyze_numerical(cleaned_df)
+```
+
+```{r}
+analyze_categorical(cleaned_df)
+```
+
+#### 1.2. Text Columns
+
+-   For `text data` the function will calculate most commonly appearing words in the `title and video_tags` columns in the `top 10%` of the videos.
+
+-   Top 10% - based on `daily_rank, daily_movement and weekly_movement.` And merging the resultant vectors into one, while removing the common words between the 2 techniques and correcting the spelling using `hunspell` library to ensure we have the words that are meaningful.
+
+-   Further in the analysis, we can use this result as a feature to train the model - to be one of the factors that determine the trendliness of the video.
+
+```{r udf_tokenise_words}
+stopwords_list <- stopwords("en")  # Define globally
+
+tokenize <- function(text) {
+  words <- unlist(str_extract_all(tolower(text), "\\b\\w+\\b"))
+  words <- words[!(words %in% stopwords_list) & nchar(words) > 4 & !grepl("^\\d+$", words)]
+  return(words)
+}
+```
+
+```{r udf_top_words}
+get_top_words <- function(df, ranking_type) {
+  if (tolower(ranking_type) == "rank") {
+    threshold <- quantile(df$daily_rank, 0.1, na.rm = TRUE)
+    top_videos <- df %>% filter(daily_rank <= threshold)
+  } else if (tolower(ranking_type) == "movement") {
+    threshold_daily <- quantile(df$daily_movement, 0.1, na.rm = TRUE)
+    threshold_weekly <- quantile(df$weekly_movement, 0.1, na.rm = TRUE)
+    top_videos <- df %>% filter(daily_movement <= threshold_daily | weekly_movement <= threshold_weekly)
+  } else {
+    stop("Invalid ranking_type. Use 'rank' or 'movement'.")
+  }
+  
+  # Ignore NA values
+  top_videos <- top_videos %>% drop_na(title, video_tags)
+  
+  # Process title words
+  title_words <- unlist(strsplit(top_videos$title, " ")) %>% tokenize()
+  title_word_counts <- sort(table(title_words), decreasing = TRUE)
+  
+  # Process video tags words
+  tag_words <- unlist(strsplit(top_videos$video_tags, " ")) %>% tokenize()
+  tag_word_counts <- sort(table(tag_words), decreasing = TRUE)
+  
+  return(list(
+    names(title_word_counts)[1:25],
+    names(tag_word_counts)[1:25]
+  ))
+}
+```
+
+```{r udf_normalize_words}
+normalize_word <- function(word) {
+  word <- tolower(word)  # Convert to lowercase
+  word <- gsub("[- ]", "", word)  # Remove hyphens and spaces
+  return(word)
+}
+
+# stem_word <- function(word) {
+#   return(SnowballC::wordStem(word, language = "en"))
+# }
+```
+
+```{r udf_correct_spelling}
+correct_spelling <- function(words) {
+  words <- unique(sapply(words, normalize_word))  # Normalize words first
+  corrected_words <- unique(unlist(sapply(words, function(word) {
+    suggestions <- hunspell_suggest(word)
+    if (length(suggestions) > 0) {
+      return(suggestions[[1]][1])  # Pick the first suggestion
+    } else {
+      return(word)  # Keep original word if no suggestion available
+    }
+  })))
+  return(sort(corrected_words))
+}
+```
+
+```{r udf_merge_word_tuples}
+merge_word_tuples <- function(tuple1, tuple2) {
+  title_words_combined <- unique(c(tuple1[[1]], tuple2[[1]]))
+  tag_words_combined <- unique(c(tuple1[[2]], tuple2[[2]]))
+  
+  return(list(
+    correct_spelling(title_words_combined),
+    correct_spelling(tag_words_combined)
+  ))
+}
+```
+
+```{r}
+common_words_list_rank <- get_top_words(cleaned_df, "rank")
+common_words_list_movement <- get_top_words(cleaned_df, "movement")
+
+
+final_results <- merge_word_tuples(common_words_list_rank, common_words_list_movement)
+final_title_words <- final_results[[1]]
+final_tag_words <- final_results[[2]]
+
+print(paste("Final Title:", length(final_title_words), toString(final_title_words)))
+print(paste("Final Tags:", length(final_tag_words), toString(final_tag_words)))
+```
+
+Now we have 2 lists of words that we can use to introduce a synthetic column that in turn can be used as a feature to train the model.
+
+### 2. Bivariate Analysis \<Content TB Added\>
+
+<!--# Shalakha, can you please update this? If I remember correctly, you had graphs related to understanding the relationship between age of the video and trendiness -->
+
+### 3. Correlation Analysis \<Content TB Added\>
+
+<!--# Ryan, can you please update this as well. I saw some correlation analysis in your notebook -->
+
+------------------------------------------------------------------------
+
+## Feature Engineering/Selection
+
+### 1. Convert Text columns into Numerical columns
+
+Logic of `title_score` and `video_tags_score` columns -\> Take the value in the cell (say 1st cell of title (or video_tags) column - "*Highlights Real Madrid vs Barcelona 3-1...*") and run the words separately through the list of words in `final_title_words` (or `final_tag_words`) and increase the count by 1 every time the word in the cell matches a word in the list. Example: The title "*Highlights Real Madrid vs Barcelona 3-1..."* will get a score of **3.**
+
+```{r udf_calculate_text_score}
+calculate_title_score <- function(title, word_list) {
+  words <- tokenize(title)
+  matches <- sapply(words, function(word) {
+    any(grepl(paste0("\\b", word, "\\b"), word_list, ignore.case = TRUE))
+  })
+  # Ensure matches is a numeric vector (TRUE -> 1, FALSE -> 0)
+  score <- sum(as.numeric(matches))
+  return(as.integer(score))
+}
+```
+
+```{r}
+cleaned_df <- cleaned_df %>%
+  mutate(title_score = vapply(title, calculate_title_score, FUN.VALUE = integer(1), word_list = final_title_words))
+
+cleaned_df <- cleaned_df %>%
+  mutate(video_tag_score = vapply(video_tags, calculate_title_score, FUN.VALUE = integer(1), word_list = final_tag_words))
+```
+
+This functions have added a column with the intended purpose. Let's try to feed that into the model and see if its improving the performance.
+
+### 2. Principle Component Analysis (PCA)
+
+```{r filter_trendy_videos}
+# trendy = daily rank of 10 or higher and a weekly movement of 5 or less
+trendy_df_numeric <- dta_draw_from %>%
+  filter(daily_rank >= 1 & daily_rank <= 10, weekly_movement < 5)
+
+head(trendy_df_numeric)
+```
+
+Change certain non-numeric columns to numeric columns (namely: title, country, channel_id, publish data, video_id) Will try to do: description; those will be more complicated, though Therefore excluding: channel_name (covered with channel_id) Excluding due to null: language, video_tags.
+
+```{r}
+#title
+trendy_df_numeric$title_numeric <- as.numeric(factor(trendy_df_numeric$title))
+
+#publish date
+trendy_df_numeric$date_numeric <- as.numeric(format(ymd_hms(trendy_df_numeric$publish_date), "%Y%m%d"))
+
+#country
+trendy_df_numeric$country_numeric <- as.numeric(factor(trendy_df_numeric$country))
+
+#channel_name
+trendy_df_numeric$channel_name_numeric <- as.numeric(factor(trendy_df_numeric$channel_name))
+
+#language (not including as there are too many nulls; will delete column)
+#trendy_df_numeric$primary_language_numeric <- as.numeric(as.factor(trendy_df_numeric$language))
+
+#video_id
+trendy_df_numeric$video_id_numeric <- as.numeric(as.factor(trendy_df_numeric$video_id))
+```
+
+Drop character columns already converted
+
+```{r drop_character_converted}
+#trendy_df_numeric <- trendy_df_numeric %>% select(-c(title, publish_date, country, channel_name, language, channel_id, video_id, video_tags, description)) #trendy_df_numeric <- trendy_df_numeric %>% select(-c(primary_language_numeric))
+```
+
+Check nulls
+
+```{r check_null}
+colSums(is.na(trendy_df_numeric))
+```
+
+Drop rows with nulls (some in title)
+
+```{r drop_null}
+trendy_df_numeric <- trendy_df_numeric %>% drop_na(title_numeric) colSums(is.na(trendy_df_numeric))
+```
+
+Standardize
+
+```{r standardize_cols}
+trendy_standardized <- scale(trendy_df_numeric[, !names(trendy_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
+```
+
+Run PCA
+
+```{r}
+cat("\n====================== Principal Component Analysis of trendy_standardized =====================\n\n") 
+results <- prcomp(trendy_standardized) 
+summary(results) 
+cat("\n================================================================================================\n") 
+```
+
+Result: PC8 is 90.0%
+
+See which variables are associated with each principle component
+
+```{r pca_identification}
+cat("\n====================== Principal Component Loadings =====================\n\n") 
+print(results$rotation) 
+cat("\n=========================================================================\n")
+```
+
+Findings for PC8 loadings: PC8 in order of absolute value: comment_count 0.71, date_numeric 0.38, view_count 0.40, daily_movement 0.27, weekly_movement 0.17, channel_name_numeric 0.14, title_numeric 0.11 [end top 8]; daily_rank 0.09, country_numeric 0.08, video_id_numeric 0.05
+
+```{r pca_visualization}
+
+visualization_df <- as.data.frame(results$rotation) 
+
+visualization_df$variable <- rownames(visualization_df)  
+
+ggplot(visualization_df, aes(x = variable, y = PC8)) +   
+  geom_bar(stat = "identity") +   
+  coord_flip() +   
+  theme_minimal() +   
+  labs(title = "Feature Importance in PC8")
+```
+
+```{r pca_contribution_again}
+library(factoextra)  
+fviz_pca_var(results, col.var = "contrib")  # Contribution plot
+```
+
+From this, we can see the following variables contribute the most (6): like_count, view_count, comment_count, daily_rank, daily_movement, weekly_movement The ones contributing the least (5): country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric
+
+Drop insignificant columns
+
+```{r drop_insignificant}
+#dta_draw_from <- dta_draw_from %>% select(-c(country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric)) #dim(dta_draw_from)
+```
+
+## Model Training
+
+Now, we have the required dataset (under the name `cleaned_df`). We can go ahead and choose the model that can perform the intended task (classifying the video as trendy or not). And we will be introducing a `target column` (with classes 1 and 0).
+
+------------------------------------------------------------------------
+
+| Group 12
+| Keerthanapriya Kumaravel
+| Liam Punselie
+| Ryan Oosting
+| Sabesanhari Rajamanikam
+| Shalakha Deo
