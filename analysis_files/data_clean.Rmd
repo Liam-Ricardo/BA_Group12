@@ -251,7 +251,7 @@ That brings us to the end of the data cleaning part. Any more cleaning, clusteri
 
 ------------------------------------------------------------------------
 
-### Dev Team Journal ;)
+### Sabesh's Journal ;)
 
 > *Here, I'm just trying to get used to the R environment - Honestly, it is a bit annoying rn, but I feel that it will get better - ShR (27th Feb 2025 - 15:01)*
 >
@@ -260,5 +260,7 @@ That brings us to the end of the data cleaning part. Any more cleaning, clusteri
 > *Okay, this is getting nicer. But why can't I use Python (Frown face) - ShR (11th March 2025 - 16.51)*
 >
 > *Nope, I take it back. R is not getting better. Yesterday, I was able to write an NLP logic in Python in under 15 minutes. But, couldn't achieve the same level of accuracy in R without using ChatGpt (Angry Frown Face) - ShR (19th March 2025 - 14:03)*
+>
+> *R is funny to work with, but when the deadline is approaching it's like someone left you in China and you are learning and trying to speak at the same time. You know you want a Roast Beef in your language and use Google translate to convey the same thing to the waiter, but he brings you a fried rice. This was me with R in the last few days. - ShR (25th March 2025 - 17:35)*
 
 ------------------------------------------------------------------------

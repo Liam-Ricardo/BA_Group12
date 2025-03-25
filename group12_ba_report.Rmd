@@ -44,11 +44,13 @@ This cell imports the raw data. Since the data is too large for `GitHub` we can 
 
 ```{r import_dataset}
 # Update this variable with the your own filepath
-data_filepath <- ""
+data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries.csv"
 
 #Import dataset
-raw_data <- read.csv(data_filepath)
+yt_df <- read.csv(data_filepath)
 ```
+
+> *Tip: You can run all the cells at once to get the final model (or) you can import different versions of the dataset at particular sections and run the remainder of the codes. The latter is suggested, because of RStudio's limited memory capacity. The places where you can import the already created dataset will be marked with `import dataset (optional)` text.*
 
 ### 2. Inspecting the raw data
 
@@ -56,28 +58,28 @@ We are just performing an initial check on the raw data. We do not manipulate an
 
 ```{r str_dataset}
 # Structure of the dataset 
-str(raw_data)
+str(yt_df)
 ```
 
 As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check `terminal` output for better readability]*
 
 ```{r summary_dataset}
 # Summary statistics 
-summary(raw_data)
+summary(yt_df)
 ```
 
 After we got a glimpse, of what we have in hand in the raw data. Let's visualize it in the table format and soak in the beauty. *[Tip: Use the arrows to navigate to other columns]*
 
 ```{r head_dataset}
 # First few rows 
-head(raw_data)
+head(yt_df)
 ```
 
 Now, its time to understand how many rows and columns we have in the raw data. Trust me, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come handy. And post the data pre-processing, it always a good practice to compare the final model training dataset with the raw data.
 
 ```{r dimensions_dataset}
 # Dimensions of the dataset 
-dim(raw_data)
+dim(yt_df)
 ```
 
 **Summary**
@@ -92,15 +94,13 @@ dim(raw_data)
 
 In this step, we will clean the raw data as much as possible, so that it is EDA ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
 
-*It's just I like to keep a copy of all the versions of data. So, I'm making a copy of the raw_data into a new variable called `'cleaned_data'`. And I will use that moving forward. If you don't prefer that way, DO NOT run this cell.*
-
-```{r copy_dataset}
-# cleaned_data <- raw_data
-```
-
 #### 3.1. Standardizing column names and removing duplicate values
 
 Let's define a user-defined function (`udf`) to do the initial cleaning of the dataset.
+
+1.  Standardizing the column names (lower_case)
+2.  Dropping duplicate rows
+3.  Dropping unnecessary columns based on business knowledge (This step was originally supposed to be at the end of data cleaning process, but due to RStudio's memory constraints we are performing it here) [`channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language]`.
 
 ```{r udf_std_colnames}
 clean_data <- function(df){      
@@ -108,15 +108,17 @@ clean_data <- function(df){
   cleaned_data <- df %>% rename_all(tolower) %>% rename_all(str_replace_all, pattern = " ", replacement = "_")      
   # Remove duplicate rows   
   df <- df %>% distinct()      
-  # Correcting the spelling   
-  colnames(df)[colnames(df) == "langauge"] <- "language"      
+  # Dropping unnecessary columns
+  df <- df %>% select(-c(channel_name, country, description, thumbnail_url, kind, video_id, channel_id, language))
+  
   return(df) 
 }
 ```
 
+*Usually, it is a good practice to keep a copy of your dataset at the end of every junction (or major step), but due to the memory constraints of RStudio, we are going to keep updating the same dataset until the end.*
+
 ```{r}
-cleaned_df <- clean_data(cleaned_data)  
-head(cleaned_df)
+yt_df <- clean_data(yt_df)
 ```
 
 As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset, didn't have any duplicate values. So, Yayyy!
@@ -136,9 +138,12 @@ clean_character_columns <- function(df) {
 }
 ```
 
+```{r cleaning_unused_memory, include=FALSE}
+gc()
+```
+
 ```{r}
-cleaned_df <- clean_character_columns(cleaned_df)
-head(cleaned_df)
+yt_df <- clean_character_columns(yt_df)
 ```
 
 Here, the function `clean_character_columns` checks if the column is of type `character` and removes all the Unicode chars (such as `"\n","\r","\t"`). Finally, it trims the leading, trailing and extra spaces with the `str_squish(.)` function.
@@ -169,12 +174,16 @@ analyze_columns <- function(df) {
 }
 ```
 
+```{r cleaning_unused_memory, include=FALSE}
+gc()
+```
+
 ```{r}
-null_df <- analyze_columns(cleaned_df) 
+null_df <- analyze_columns(yt_df) 
 print(null_df)
 ```
 
-So, the columns - `description`, `video_tags` and `language` have null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that has null values, but we will decide this after/during feature selection step - to ensure we are not losing any valuable data.
+So, the column `video_tags` have null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that has null values, but we will decide this after/during feature selection step - to ensure we are not losing any valuable data.
 
 #### 3.4. Dropping Unnecessary columns
 
@@ -194,15 +203,8 @@ check_unique_values <- function(df) {
 ```
 
 ```{r}
-unique_values_table <- check_unique_values(cleaned_df) 
+unique_values_table <- check_unique_values(yt_df) 
 print(unique_values_table)
-```
-
-For now, we will drop the columns - ~~`snapshot_date`~~, `thumbnail_url`, `kind`. Later, based on the further analysis, we can come back and drop more columns if needed.
-
-```{r drop_unnecessary_cols}
-cleaned_df <- cleaned_df %>% select(-c(thumbnail_url, kind)) 
-print(dim(cleaned_df))
 ```
 
 #### 3.5. Outlier identification
@@ -236,7 +238,7 @@ detect_outliers <- function(df) {
 ```
 
 ```{r}
-outlier_report <- detect_outliers(cleaned_df)
+outlier_report <- detect_outliers(yt_df)
 print(outlier_report)
 ```
 
@@ -256,21 +258,40 @@ export_data <- function(df, input_filepath){
 ```
 
 ```{r}
-export_data(cleaned_df, data_filepath)
+export_data(yt_df, data_filepath)
 ```
 
 That brings us to the end of the data cleaning part. Any more cleaning, clustering, merging or separation of the dataset(s) will happen in the next step(s).
 
-```{r}
-# This block removes all the elements from your environment 
+```{r cleaning_unused_memory, include=FALSE}
+# This block removes all the elements from your environment and cleans up unused memory from the session
 # remove(list = ls())
+gc()
 ```
 
 ------------------------------------------------------------------------
 
 ## Exploratory Data Analysis
 
+```{r import_cleaned_dataset}
+# Update this variable with the your own filepath
+# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"
+
+#Import dataset
+# yt_df <- read.csv(data_filepath)
+```
+
 ### 1. Univariate Analysis
+
+#### Import Dataset (Optional)
+
+```{r}
+# Update this variable with the your own filepath 
+# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"  
+
+# Import dataset 
+# yt_df <- read.csv(data_filepath)
+```
 
 The first step in EDA is "`Univariate analysis`" - in a nutshell - means that analysing each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
 
@@ -329,11 +350,11 @@ analyze_categorical <- function(df) {
 ```
 
 ```{r}
-analyze_numerical(cleaned_df)
+analyze_numerical(yt_df)
 ```
 
 ```{r}
-analyze_categorical(cleaned_df)
+# analyze_categorical(yt_df)
 ```
 
 #### 1.2. Text Columns
@@ -345,7 +366,7 @@ analyze_categorical(cleaned_df)
 -   Further in the analysis, we can use this result as a feature to train the model - to be one of the factors that determine the trendliness of the video.
 
 ```{r udf_tokenise_words}
-stopwords_list <- stopwords("en")  # Define globally
+stopwords_list <- stopwords("en")
 
 tokenize <- function(text) {
   words <- unlist(str_extract_all(tolower(text), "\\b\\w+\\b"))
@@ -391,10 +412,6 @@ normalize_word <- function(word) {
   word <- gsub("[- ]", "", word)  # Remove hyphens and spaces
   return(word)
 }
-
-# stem_word <- function(word) {
-#   return(SnowballC::wordStem(word, language = "en"))
-# }
 ```
 
 ```{r udf_correct_spelling}
@@ -425,8 +442,8 @@ merge_word_tuples <- function(tuple1, tuple2) {
 ```
 
 ```{r}
-common_words_list_rank <- get_top_words(cleaned_df, "rank")
-common_words_list_movement <- get_top_words(cleaned_df, "movement")
+common_words_list_rank <- get_top_words(yt_df, "rank")
+common_words_list_movement <- get_top_words(yt_df, "movement")
 
 
 final_results <- merge_word_tuples(common_words_list_rank, common_words_list_movement)
@@ -438,6 +455,10 @@ print(paste("Final Tags:", length(final_tag_words), toString(final_tag_words)))
 ```
 
 Now we have 2 lists of words that we can use to introduce a synthetic column that in turn can be used as a feature to train the model.
+
+```{r cleaning_unused_memory, include=FALSE}
+gc()
+```
 
 ### 2. Bivariate Analysis \<Content TB Added\>
 
@@ -468,16 +489,34 @@ calculate_title_score <- function(title, word_list) {
 ```
 
 ```{r}
-cleaned_df <- cleaned_df %>%
+yt_df <- yt_df %>%
   mutate(title_score = vapply(title, calculate_title_score, FUN.VALUE = integer(1), word_list = final_title_words))
 
-cleaned_df <- cleaned_df %>%
+yt_df <- yt_df %>%
   mutate(video_tag_score = vapply(video_tags, calculate_title_score, FUN.VALUE = integer(1), word_list = final_tag_words))
 ```
 
 This functions have added a column with the intended purpose. Let's try to feed that into the model and see if its improving the performance.
 
+```{r export_feature_engg}
+export_data <- function(df, input_filepath){   
+  output_filepath <- sub(".csv","_feature_engg.csv",input_filepath)   
+  write.csv(df, output_filepath, row.names = FALSE) 
+}
+
+export_data(yt_df, data_filepath)
+```
+
 ### 2. Principle Component Analysis (PCA)
+
+#### Import Dataset (Optional)
+
+```{r}
+# Update this variable with the your own filepath 
+# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_feature_engg.csv"
+
+#Import dataset # yt_df <- read.csv(data_filepath)
+```
 
 ```{r filter_trendy_videos}
 # trendy = daily rank of 10 or higher and a weekly movement of 5 or less
@@ -580,9 +619,85 @@ Drop insignificant columns
 #dta_draw_from <- dta_draw_from %>% select(-c(country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric)) #dim(dta_draw_from)
 ```
 
+#### Import Dataset (Optional)
+
+```{r}
+# Update this variable with the your own filepath
+# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_feature_engg.csv"
+
+#Import dataset
+# yt_df <- read.csv(data_filepath)
+```
+
+Let's prep the data for that can be fed into the model.
+
+```{r}
+yt_df <- yt_df %>%
+  mutate(
+    engagement_score = ifelse(!is.na(view_count) & view_count > 0, 
+                              round(like_count / view_count, 2), 0),
+    comment_score = ifelse(!is.na(view_count) & view_count > 0, 
+                           round(comment_count / view_count, 2), 0),
+    video_age = as.numeric(difftime(snapshot_date, publish_date, units = "days"))
+  )
+```
+
+```{r}
+calculate_trend_score <- function(df) {
+  df <- df %>%
+    mutate(
+      # Calculate rank-based score (50% weightage)
+      rank_score = ifelse(daily_rank < 10, (10 - daily_rank) / 10, 0),
+      
+      max_movement = max(daily_movement, na.rm = TRUE),
+      movement_score = ifelse(daily_movement > 0 & max_movement > 0, 
+                              daily_movement / max_movement, 0),
+      
+      weighted_rank_score = 0.5 * (rank_score + movement_score) * 100,  
+      
+      # Engagement-based score (50% weightage)
+      weighted_engagement_score = ifelse(engagement_score > 0.1, 50, 0),
+      
+      # Compute final trend_score
+      trend_score = (weighted_rank_score * 0.5) + weighted_engagement_score,
+      
+      # Determine if the video is trending
+      trending = ifelse(trend_score > 80, 1, 0)
+    ) %>%
+    select(-rank_score, -max_movement, -movement_score, -weighted_rank_score, -weighted_engagement_score)
+
+  return(df)
+}
+```
+
+```{r}
+yt_df <- calculate_trend_score(yt_df)
+```
+
+```{r export_model_training}
+export_data <- function(df, input_filepath){   
+  output_filepath <- sub(".csv","_model_training.csv",input_filepath)   
+  write.csv(df, output_filepath, row.names = FALSE) 
+}
+
+export_data(yt_df, data_filepath)
+
+gc()
+```
+
 ## Model Training
 
-Now, we have the required dataset (under the name `cleaned_df`). We can go ahead and choose the model that can perform the intended task (classifying the video as trendy or not). And we will be introducing a `target column` (with classes 1 and 0).
+Now, we have the required dataset (under the name `yt_df`). We can go ahead and choose the model that can perform the intended task (classifying the video as trendy or not).
+
+#### Import Dataset (Optional)
+
+```{r}
+# Update this variable with the your own filepath
+# data_filepath <- "<update here>/trending_yt_videos_113_countries_model_training.csv"
+
+#Import dataset
+# yt_df <- read.csv(data_filepath)
+```
 
 ------------------------------------------------------------------------
 
