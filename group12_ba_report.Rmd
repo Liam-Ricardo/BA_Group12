@@ -34,6 +34,11 @@ library(tm)
 library(hunspell)
 library(SnowballC)
 library(factoextra)
+library(C50)
+library(gmodels)
+library(Hmisc)
+library(randomForest)
+library(rsample)
 ```
 
 Now that we have all the required libraries imported, let's dive into analyzing the dataset and train a ML model to classify the video as a Trending video or not. First let's start by importing the dataset and cleaning it.
@@ -44,7 +49,7 @@ This cell imports the raw data. Since the data is too large for `GitHub` we can 
 
 ```{r import_dataset}
 # Update this variable with the your own filepath
-data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries.csv"
+data_filepath <-"C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
 
 #Import dataset
 yt_df <- read.csv(data_filepath)
@@ -287,10 +292,10 @@ gc()
 
 ```{r}
 # Update this variable with the your own filepath 
-# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"  
+ data_filepath <- "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries_cleaned.csv"  
 
 # Import dataset 
-# yt_df <- read.csv(data_filepath)
+ yt_df <- read.csv(data_filepath)
 ```
 
 The first step in EDA is "`Univariate analysis`" - in a nutshell - means that analysing each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
@@ -697,6 +702,52 @@ Now, we have the required dataset (under the name `yt_df`). We can go ahead and 
 
 #Import dataset
 # yt_df <- read.csv(data_filepath)
+```
+
+### 1. RandomForest
+
+### **2. Boosting**
+
+```{r model_boosting}
+# Set parameters
+iterations <- 15 # how many trees do you want to estimate?
+randomize <- TRUE # use a randomly selected set of predictor variables?
+min_randomize <- 2 # if randomize is set to TRUE, how many predictor variables do you want to sample (min = 2, max = 5)
+proportion <- 0.7 # train test split
+
+# Split dataframe in training and testing set
+
+
+
+split <- rsample::initial_split(yt_df, prop = proportion)
+training <- training(split)
+testing <- testing(split)
+
+target_var <- "daily_rank"  # Change this to match predictor variable later on!
+
+# Boosting with C5.0
+if (randomize) {
+    predictors <- setdiff(names(training), target_var)  # Exclude target variable
+    sampled_predictors <- sample(predictors, sample(min_randomize:length(predictors), 1))
+    
+    formula <- as.formula(paste(target_var, "~", paste(sampled_predictors, collapse = " + ")))
+    model <- C5.0(formula, data = training, trials = iterations)  # Boosting with trials
+} else {
+    model <- C5.0(as.formula(paste(target_var, "~ .")), data = training, trials = iterations)
+}
+
+# Make predictions
+predictions <- predict(model, testing)
+
+# Add predictions to the testing set
+testing$Predicted <- predictions
+
+# Check model performance
+conf_matrix <- table(testing[[target_var]], testing$Predicted)
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+
+# Print accuracy
+print(paste("Model Accuracy:", round(accuracy * 100, 2), "%"))
 ```
 
 ------------------------------------------------------------------------
