@@ -1,0 +1,144 @@
+---
+title: "BA_12_LogitR"
+output: html_document
+date: "2025-03-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+destination_path = "D:/Netherlands/TU DELFT/Q3 2024/Business Analytics/R/trending_yt_videos_113_countries_model_training.csv"
+
+df <- read.csv(destination_path)
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Calculate criteria thresholds
+view_threshold <- quantile(df$view_count, 0.75, na.rm = TRUE)
+
+# Create target variable using weighted criteria
+df <- df %>%
+  mutate(
+    daily_rank_met = as.integer(daily_rank <= 10),
+    like_ratio_met = as.integer((like_count / view_count) >= 0.05),
+    view_count_met = as.integer(view_count >= view_threshold),
+    weekly_movement_met = as.integer(weekly_movement >= 0),
+    
+    # Calculate weighted score (scale to 0-100)
+    weighted_score = (daily_rank_met * 30) + 
+                     (like_ratio_met * 25) + 
+                     (view_count_met * 25) + 
+                     (weekly_movement_met * 20),
+    
+    # Create binary target variable
+    is_trending = as.factor(ifelse(weighted_score >= 80, 1, 0))
+  ) %>%
+  select(-daily_rank_met, -like_ratio_met, -view_count_met, -weekly_movement_met)
+
+# Handle missing values
+df <- df %>%
+  filter(complete.cases(view_count, like_count, comment_count, daily_rank))
+
+# Convert categorical variables to factors
+#df <- df %>%
+  #mutate(
+    #country = as.factor(country),
+    #primary_language = as.factor(primary_language)
+  #)
+
+# Split data into training and test sets
+set.seed(123)
+train_indices <- sample(seq_len(nrow(df)), size = 0.8 * nrow(df))
+train_data <- df[train_indices, ]
+test_data <- df[-train_indices, ]
+
+# Train logistic regression model
+logit_model <- glm(is_trending ~ daily_rank + view_count + like_count + 
+                   comment_count + daily_movement + weekly_movement,
+                   data = train_data, 
+                   family = "binomial")
+
+# Model summary
+summary(logit_model)
+
+# Predict on test set
+predictions <- predict(logit_model, newdata = test_data, type = "response")
+
+# Convert probabilities to classes
+predicted_classes <- factor(ifelse(predictions > 0.5, 1, 0), levels = c(0, 1))
+
+# Compute confusion matrix manually
+actual_classes <- test_data$is_trending
+conf_matrix <- table(Predicted = predicted_classes, Actual = actual_classes)
+
+# Print confusion matrix
+print(conf_matrix)
+
+# Calculate accuracy
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+cat("Accuracy:", round(accuracy, 4), "\n")
+
+# Feature importance based on absolute model coefficients
+feature_importance <- abs(coef(logit_model)[-1])  # Exclude intercept
+feature_df <- data.frame(Feature = names(feature_importance), Importance = feature_importance)
+
+# Plot feature importance
+ggplot(feature_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  ggtitle("Feature Importance in Trending Prediction") +
+  xlab("Feature") +
+  ylab("Importance")
+
+```
+
+
+
+
+```{r }
+# Function to predict trendiness of a new video
+predict_trendiness <- function(model, new_video) {
+  # Ensure new data has correct structure
+  new_video <- as.data.frame(new_video)
+  
+  # Predict probability of trendiness
+  predicted_prob <- predict(model, newdata = new_video, type = "response")
+  
+  # Convert to binary classification
+  predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
+  
+  # Return prediction result
+  return(list(Probability = predicted_prob, Trendiness = predicted_class))
+}
+
+
+# Example new video data
+new_video <- data.frame(
+  daily_rank = 5,
+  view_count = 100000,
+  like_count = 5000,
+  comment_count = 800,
+  daily_movement = 3,
+  weekly_movement = 10,
+  country = factor("US", levels = levels(df$country)),
+  primary_language = factor("English", levels = levels(df$primary_language))
+)
+
+# Predict trendiness
+prediction <- predict_trendiness(logit_model, new_video)
+print(prediction)
+
+```
+
