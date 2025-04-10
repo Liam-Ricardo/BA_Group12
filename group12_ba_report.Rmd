@@ -95,6 +95,22 @@ Now, its time to understand how many rows and columns we have in the raw data. T
 dim(yt_df)
 ```
 
+```{r numerical vs non-numerical}
+# Create a classification of columns as numerical or non-numerical
+column_types <- sapply(yt_df, is.numeric)
+
+# Extract numerical and non-numerical column names
+numerical_columns <- names(column_types[column_types == TRUE])
+non_numerical_columns <- names(column_types[column_types == FALSE])
+
+# Print grouped column names
+cat("Numerical Columns:\n")
+cat(numerical_columns, sep = "\n")
+
+cat("\nNon-Numerical Columns:\n")
+cat(non_numerical_columns, sep = "\n")
+```
+
 With 18 columns not all of them will be relevant for predicting whether a YouTube video becomes trendy or not. But at first-sight the following columns are worth diving deeper into:
 
 [daily_rank:]{.underline} This is the position a video has at a given day. The ranking ranges from 1-50, in which 1 is the highest rank and 50 the lowest. The ranking is done of all videos within a country.
@@ -352,12 +368,14 @@ analyze_numerical(yt_df)
 ```
 
 ```{r}
-# analyze_categorical(yt_df)
+analyze_categorical(yt_df)
 ```
+
+<!--# why does above function not work/prints every single non-numerical instance? -->
 
 <!--# why do some mention histograms and other boxplots? I see only boxplots as output from analyze_categorical()? And everything seems plotted 2x per variable?-->
 
-**Abnormalities** 
+**Abnormalities numerical variables** 
 
 *Skewness:* A prominent abnormality across several variables (`daily_rank`, `view_count`, `like_count`, and `comment_count`) is the strong right-skew in their distributions. This suggests that for these variables, most of the values are concentrated at the lower end, with a few very large values pulling the mean to the right. This is common in marketing campaign data or data related to popularity or engagement. As mentioned before, these variables are typical KPIs used by industry professionals.
 
@@ -365,7 +383,7 @@ analyze_numerical(yt_df)
 
 *Central Tendency and Spread:* For `daily_movement` and `weekly_movement`, the distributions are centered around zero, suggesting that the movements are balanced around no net change. The spread, as indicated by the boxplots and density plots, shows the typical magnitude of these movements. 
 
-**Insights** 
+**Insights numerical variables** 
 
 1.  The right-skew in `view_count`, `like_count`, and `comment_count` suggests that a small proportion of content attracts a disproportionately large share of views, likes, and comments. This insight is crucial for content creators or platform managers, as it highlights the importance of identifying and potentially promoting content with the potential to become highly popular. 
 
@@ -373,7 +391,7 @@ analyze_numerical(yt_df)
 
 2.  The distributions of `daily_movement` and `weekly_movement` being centered around zero might imply a certain level of stability in the underlying system, with fluctuations occurring around a central equilibrium. However, the outliers in these variables could indicate instances of significant shifts. These might be of most interest for our business problem to classify trendy videos.
 
-For an more detailed overview of analysis per variable and corresponding boxplot, see the table below.
+For an more detailed overview of analysis per numerical variable and corresponding boxplot, see the table below.
 
 | Variable | Distribution | Range and Outliers | Density |
 |----------------|----------------------|-------------------|-----------------|
@@ -384,9 +402,9 @@ For an more detailed overview of analysis per variable and corresponding boxplot
 | `like_count` | The histogram of `like_count` is also right-skewed, similar to `view_count`, with most counts concentrated at the lower end and fewer occurrences of very high `like_count` values. | The boxplot shows the concentration of data points at the lower end and the presence of many outliers on the higher end. | The density plot highlights the skew, with a sharp peak close to zero and a tail extending towards larger `like_count` values. |
 | `comment_count` | The histogram of `comment_count` exhibits a strong right-skew, indicating that most observations have lower comment counts, with only a few having very high counts. | The boxplot illustrates that most values are near zero, with a substantial number of outliers on the higher end. | The density plot shows a high peak near zero and a long tail extending towards the higher `comment_count` values, demonstrating the skew. |
 
-: Table overview of insights from boxplots categorical variables
+: Table overview of insights from boxplots numerical variables
 
-#### 1.2. Text Columns
+#### 1.2. Non-Numeric Columns
 
 -   For `text data` the function will calculate most commonly appearing words in the `title and video_tags` columns in the `top 10%` of the videos.
 
@@ -490,6 +508,8 @@ gc()
 ```
 
 There are also a few columns that seem not as relevant to help our model predict trendiness of a video. These are: `channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language.`
+
+The variable `language` had alot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we decided not including this variable as it did not seem as important for predicting trendiness.
 
 <!--# elaborate! -->
 
