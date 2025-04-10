@@ -9,7 +9,7 @@ output: html_document
 
 ### Problem Statement
 
-Capturing the audience's attention in the current digital landscape is a substantial challenge with the endless content at users' fingertips. 1,800 YouTube videos are posted every minute, amounting to a 360 hour increase in available content on the platform [[1](https://seo.ai/blog/how-many-videos-are-on-youtube)]. As a marketing professional, how will ensure your video stands out? This challenge is further exacerbated by humans' ever-decreasing average attention span which, in 2024, was measured at just 8 seconds [[2](https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years)]. Attracting the audience's attention is a challenge enough; sustaining it is yet another. Both aspects are critical for successful marketing campaigns which is why industry professionals such as content creators and product/service marketing teams need to know their audiences, know what keeps them interested, what drives them away, and what levers they can pull to increase their reach. This is where machine learning comes in.
+Capturing the audience's attention in the current digital landscape is a substantial challenge with the endless content at users' fingertips. 1,800 YouTube videos are posted every minute, amounting to a 360 hour increase in available content on the platform [[1](https://seo.ai/blog/how-many-videos-are-on-youtube)]. As a marketing professional, how will you ensure your video stands out? This challenge is further exacerbated by humans' ever-decreasing average attention span which, in 2024, was measured at just 8 seconds [[2](https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years)]. Attracting the audience's attention is challenging enough; sustaining it is yet another. Both aspects are critical for successful marketing campaigns which is why industry professionals such as content creators and product/service marketing teams need to know their audiences, know what keeps them interested, what drives them away, and what levers they can pull to increase their reach. This is where machine learning comes in.
 
 ### Task
 
@@ -17,7 +17,7 @@ Develop a machine learning model to classify a video trendiness given the video'
 
 ### Application
 
-This machine learning model can be leveraged by marketing professionals to predict the likelihood that a given YouTube video will become trendy. This information informs tactical choices in the development process, enabling the professional to optimize video content and publishing strategies to increase the chance of the video becoming trendy. A trendy video subsequently increases the video's number of impressions which is a typical KPI (key performance indicator) among marketing teams.
+This machine learning model can be leveraged by marketing professionals to predict the likelihood that a given YouTube video will become trendy. This information informs tactical choices in the development process, enabling the professional to optimize video content and publishing strategies to increase the chance of the video becoming trendy. A trendy video subsequently increases the video's number of impressions which is a typical KPI (key performance indicator) among marketing teams. This in turn usually influences engagement metrics, another typical KPI among marketing campaigns and industry professionals.
 
 ### Dataset
 
@@ -29,7 +29,7 @@ We are using the dataset from Kaggle - [Trending Youtube Video Statistics (113 C
 
 ### 1. Importing the required libraries
 
-Only use this cells to import all the required libraries. DO NOT import the libraries in any other cells below, it helps with maintaining the code properly and enhances the readability of the code. If you don't want anyone else to update any imports, please mention that in a **comment** next to it (see the example provided in line 1)
+Only use this cells to import all the required libraries. DO NOT import the libraries in any other cells below, it helps with maintaining the code properly and enhances the readability of the code.
 
 ```{r import_libraries, include=FALSE}
 library(dplyr) 
@@ -88,32 +88,50 @@ After we got a glimpse, of what we have in hand in the raw data. Let's visualize
 head(yt_df)
 ```
 
-Now, its time to understand how many rows and columns we have in the raw data. Trust me, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come handy. And post the data pre-processing, it always a good practice to compare the final model training dataset with the raw data.
+Now, its time to understand how many rows and columns we have in the raw data. Trust us, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come in handy. And after data pre-processing, later on in this report, we will compare the final model training dataset with the raw data it as this is a good practice to do.
 
 ```{r dimensions_dataset}
 # Dimensions of the dataset 
 dim(yt_df)
 ```
 
-**Summary**
+With 18 columns not all of them will be relevant for predicting whether a YouTube video becomes trendy or not. But at first-sight the following columns are worth diving deeper into:
+
+[daily_rank:]{.underline} This is the position a video has at a given day. The ranking ranges from 1-50, in which 1 is the highest rank and 50 the lowest. The ranking is done of all videos within a country.
+
+[daily_movement:]{.underline} This shows how much movement in ranking a video had at a given day.
+
+[weekly_moment:]{.underline} Similar to `daily_movement` but then movement measured within a singel week.
+
+[view_count:]{.underline} The amount of views a video has had, which is one of the primary KPIs for marketing campaigns and content creators.
+
+Most industry professionals are also very interested in the interaction between their content and audience and for this they keep track of engagement metrics. Our dataset also contains a few columns that are very suitable to be part of engagement metrics:
+
+[like_count:]{.underline} This is the total likes a video has received. It is also an important KPI and might become part of an engagement metric variable later on in the analysis.
+
+[comment_count:]{.underline} Similar to `like_count` but then done with regards to comments per video.
+
+**Summary insights**
 
 1.  We have 2,720,499 rows and 18 columns in our dataset
 
 2.  12 `char` (non-numerical) columns and 6 `int` (numerical) columns
 
-3.  The `int` column seems to be properly formatted (i.e. without any `str` in between)
+3.  The `int` columns seems to be properly formatted (i.e. without any `str` in between)
+
+4.  At first-sight interesting columns for predicting trendiness are `daily_rank` , `daily_movement` ,`weekly_movement` , and `view_count` . For engagement metrics columns `like_count` and `comment_count` seem relevant.
 
 ### 3. Data Pre-Processing
 
-In this step, we will clean the raw data as much as possible, so that it is EDA ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
+In this step, we will clean the raw data as much as possible, so that it is Exploratory Data Analysis (EDA) ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
 
 #### 3.1. Standardizing column names and removing duplicate values
 
-Let's define a user-defined function (`udf`) to do the initial cleaning of the dataset.
+Let's define a user-defined function (`udf`) to do the initial cleaning of the dataset. The function will:
 
 1.  Standardizing the column names (lower_case)
 2.  Dropping duplicate rows
-3.  Dropping unnecessary columns based on business knowledge (This step was originally supposed to be at the end of data cleaning process, but due to RStudio's memory constraints we are performing it here) [`channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language]`.
+3.  Dropping unnecessary columns based on business knowledge reasoning is given later in EDA (This step was originally supposed to be at the end of EDA, but due to RStudio's memory constraints we are performing it here) [`channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language]`.
 
 ```{r udf_std_colnames}
 clean_data <- function(df){      
@@ -122,7 +140,7 @@ clean_data <- function(df){
   # Remove duplicate rows   
   df <- df %>% distinct()      
   # Dropping unnecessary columns
-  df <- df %>% select(-c(channel_name, country, description, thumbnail_url, kind, video_id, channel_id, language))
+  df <- df %>% select(-c(channel_name, country, description, thumbnail_url, kind, video_id, channel_id, langauge))
   
   return(df) 
 }
@@ -134,11 +152,11 @@ clean_data <- function(df){
 yt_df <- clean_data(yt_df)
 ```
 
-As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset, didn't have any duplicate values. So, Yayyy!
+As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset didn't have any duplicate values, for which we are very grateful.
 
 #### 3.2. Tidy up the non-numerical columns
 
-The non-numerical columns tend to have special characters (like \$, %, etc.) that might not be useful for us. Also, it might contain some ASCII or Unicode characters as well (such as `"\n"`) that might be interfering with the readability and analysis of the values. So, its better to treat them by removing them from our dataset.
+The non-numerical columns tend to have special characters (like \$, %, etc.) that might not be useful for classifying when a video will become trendy or not. Also, non-numerical columns might contain some ASCII or Unicode characters as well (such as `"\n"`) that might be interfering with the readability and analysis of the values. So, its better to treat them by removing them from our dataset.
 
 ```{r udf_clean_char_cols}
 clean_character_columns <- function(df) {   
@@ -196,17 +214,17 @@ null_df <- analyze_columns(yt_df)
 print(null_df)
 ```
 
-So, the column `video_tags` have null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that has null values, but we will decide this after/during feature selection step - to ensure we are not losing any valuable data.
+As visible in the table, only the column `video_tags` has null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that have null values, but we will decide this during our feature selection step - to ensure we are not losing any valuable data.
 
 #### 3.4. Dropping Unnecessary columns
 
-We will do a premilinary feature engineering, by dropping unnecessary columns and the columns that might not be useful based on the subject knowledge. Some basic conditions for determining not-so-useful columns are:
+We will do a preliminary feature engineering, by dropping unnecessary columns and the columns that might not be useful based on the subject knowledge. Some basic conditions for determining not-so-useful columns are:
 
 1.  Columns with more than 75% null values
 2.  Columns with only 1 unique values
 3.  Entire column/row being null
 
-Now let's check the number of unique values and drop the columns with only 1 unique value.
+Now let's check the number of unique values and if there are columns with only 1 unique value we will drop them.
 
 ```{r udf_check_unique_values}
 check_unique_values <- function(df) {   
@@ -220,9 +238,11 @@ unique_values_table <- check_unique_values(yt_df)
 print(unique_values_table)
 ```
 
+Okay, clearly there are no columns with only 1 unique value so let's continue.
+
 ### 4. Export the cleaned data
 
-Finally, let's export the cleaned data. So, that we can use a different notebook to perform the EDA. This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
+Finally, we will export the cleaned data. So, that we can use a different notebook to perform the EDA. For presenting our analysis we have included this EDA notebook by embedding it into the full report. This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
 
 ```{r udf_export_dataset}
 export_data <- function(df, input_filepath){   
@@ -247,6 +267,8 @@ gc()
 
 ## Exploratory Data Analysis
 
+In this step of the analysis the aim is to gain a deeper understanding of the data so that we can identify obvious errors, missing data, recognize potential patterns, as well as spot outliers.
+
 ```{r import_cleaned_dataset}
 # Update this variable with the your own filepath
 # data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"
@@ -267,7 +289,7 @@ gc()
  yt_df <- read.csv(data_filepath)
 ```
 
-The first step in EDA is "`Univariate analysis`" - in a nutshell - means that analysing each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
+The first step in EDA is "`Univariate analysis`" - in a nutshell - meaning that we will analyse each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
 
 #### 1.1. Numerical & Categorical Columns
 
@@ -323,6 +345,8 @@ analyze_categorical <- function(df) {
 }
 ```
 
+Please be patient when running the below code chunk it will take a few minutes, but in the mean time think of all the nice visuals that it will give you in return!
+
 ```{r}
 analyze_numerical(yt_df)
 ```
@@ -330,6 +354,37 @@ analyze_numerical(yt_df)
 ```{r}
 # analyze_categorical(yt_df)
 ```
+
+<!--# why do some mention histograms and other boxplots? I see only boxplots as output from analyze_categorical()? And everything seems plotted 2x per variable?-->
+
+**Abnormalities** 
+
+*Skewness:* A prominent abnormality across several variables (`daily_rank`, `view_count`, `like_count`, and `comment_count`) is the strong right-skew in their distributions. This suggests that for these variables, most of the values are concentrated at the lower end, with a few very large values pulling the mean to the right. This is common in marketing campaign data or data related to popularity or engagement. As mentioned before, these variables are typical KPIs used by industry professionals.
+
+*Outliers:* The boxplots reveal the presence of outliers in `daily_movement`, `weekly_movement`, `view_count`, `like_count`, and `comment_count`. These outliers indicate extreme values that deviate significantly from the rest of the data. In the context of view, like, and comment counts, outliers might represent exceptionally popular or trendy content. 
+
+*Central Tendency and Spread:* For `daily_movement` and `weekly_movement`, the distributions are centered around zero, suggesting that the movements are balanced around no net change. The spread, as indicated by the boxplots and density plots, shows the typical magnitude of these movements. 
+
+**Insights** 
+
+1.  The right-skew in `view_count`, `like_count`, and `comment_count` suggests that a small proportion of content attracts a disproportionately large share of views, likes, and comments. This insight is crucial for content creators or platform managers, as it highlights the importance of identifying and potentially promoting content with the potential to become highly popular. 
+
+<!-- -->
+
+2.  The distributions of `daily_movement` and `weekly_movement` being centered around zero might imply a certain level of stability in the underlying system, with fluctuations occurring around a central equilibrium. However, the outliers in these variables could indicate instances of significant shifts. These might be of most interest for our business problem to classify trendy videos.
+
+For an more detailed overview of analysis per variable and corresponding boxplot, see the table below.
+
+| Variable | Distribution | Range and Outliers | Density |
+|----------------|----------------------|-------------------|-----------------|
+| `daily_rank` | The histogram of `daily_rank` shows a right-skewed distribution, indicating that most of the values are concentrated towards the lower end of the rank, with fewer occurrences of higher rank values. | The boxplot confirms the right-skewness and suggests a limited range of `daily_rank` values, mostly between 0 and 25. There don't appear to be significant outliers. | The density plot illustrates the skew more clearly, with a peak at the lower end and a tail extending to the right. |
+| `daily_movement`  | The histogram of `daily_movement` shows a distribution centered around zero, with frequencies decreasing as you move away from zero in both positive and negative directions. | The boxplot shows the median `daily_movement` is around zero, with the interquartile range (IQR) indicating the spread of the central 50% of the data. The whiskers suggest a range from approximately -40 to +40, with a few potential outliers beyond these ranges. | The density plot shows a peak around zero, confirming the distribution's center, and tails off symmetrically, suggesting a distribution that might be close to normal but possibly with heavier tails. |
+| `weekly_movement` | Similar to `daily_movement`, the histogram of `weekly_movement` is centered around zero, with a decrease in frequency as you move towards the extremes. | The boxplot indicates the median `weekly_movement` is approximately zero. The IQR represents the spread of the central 50%. The whiskers extend to around -40 and +40, with some outliers beyond these points. | The density plot shows a peak at zero and a symmetric decrease on both sides, resembling a normal distribution curve, but again, the tails might be heavier. |
+| `view_count` | The `view_count` histogram is heavily right-skewed, indicating that most observations have lower view counts, and only a few have very high counts. | The boxplot illustrates the skew and shows that the majority of the data points are concentrated at the lower end, with a large number of outliers on the higher end of view_count.   | The density plot emphasizes the skew, with a high peak near zero and a long tail extending towards the higher values of view_count. |
+| `like_count` | The histogram of `like_count` is also right-skewed, similar to `view_count`, with most counts concentrated at the lower end and fewer occurrences of very high `like_count` values. | The boxplot shows the concentration of data points at the lower end and the presence of many outliers on the higher end. | The density plot highlights the skew, with a sharp peak close to zero and a tail extending towards larger `like_count` values. |
+| `comment_count` | The histogram of `comment_count` exhibits a strong right-skew, indicating that most observations have lower comment counts, with only a few having very high counts. | The boxplot illustrates that most values are near zero, with a substantial number of outliers on the higher end. | The density plot shows a high peak near zero and a long tail extending towards the higher `comment_count` values, demonstrating the skew. |
+
+: Table overview of insights from boxplots categorical variables
 
 #### 1.2. Text Columns
 
@@ -434,6 +489,10 @@ Now we have 2 lists of words that we can use to introduce a synthetic column tha
 gc()
 ```
 
+There are also a few columns that seem not as relevant to help our model predict trendiness of a video. These are: `channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language.`
+
+<!--# elaborate! -->
+
 ### 2. Bivariate Analysis \<Content TB Added\>
 
 <!--# Shalakha, can you please update this? If I remember correctly, you had graphs related to understanding the relationship between age of the video and trendiness -->
@@ -481,7 +540,7 @@ Let's create our dataframe with "desirable" outliers — in other words, the mos
 
 <!--# add relationship between criteria to outlier data? and justification? -->
 
-Our criteria for being a "desirable" outlier is as follows:
+Our criteria for being a trendy video, or a "desirable" outlier, is as follows:
 
 1.  Like-to-view ratio is in the top 5th percentile
 2.  Comment-to-view ratio is in the top 5th percentile
@@ -490,7 +549,7 @@ Our criteria for being a "desirable" outlier is as follows:
 5.  Daily movement is \>= -4
 6.  Weekly movement \>= 0
 
-Since criteria #3-6 are based on existing variables in the dataset, let's start by establishing the ratios for criteria #1 and #2.
+Since criteria #3-6 are based on existing variables in the dataset, let's start by establishing the new variables expressed in ratios for criteria #1 and #2.
 
 ```{r establish like-to-view and comment-to-view ratios}
 yt_df <- yt_df %>%
@@ -537,7 +596,7 @@ We can see that the following columns are non-numeric.
 3.  publish_date
 4.  video_tags
 
-Because snapshot_date is the same for all videos, we can drop that column. We will also drop video_tags and that will be explored in a separate section.
+Because snapshot_date is the same for all videos, we can drop that column. We will also drop video_tags as that column will be explored in a separate section.
 
 Let's first convert title and publish_date:
 
@@ -661,7 +720,7 @@ for (pc in colnames(loadings_full)) {
 }
 ```
 
-**Conclusion**
+**Insights PCA**
 
 Taking a look at the variable contributions to each Principal Component, we deduce the following:
 
@@ -784,9 +843,13 @@ gc()
 
 ## Model Training
 
-Now, we have the required dataset (under the name `yt_df`). We can go ahead and choose the model that can perform the intended task (classifying the video as trendy or not).
+Now that we have prepared our dataset (under the name `yt_df`), we can go ahead and select the appropriate models to classify wheter a video will become trendy. Since this is a binary classification problem (trendy vs not trendy), we selected models well-suited for this task.
 
-#### Import Dataset (Optional)
+First, we chose RandomForest. This ensemble method is known for its good performance on classification problems due to its ability to handle non-linear relationships, reduce overfitting through bagging, and provide insights via feature importance. It is also relative robust to noise in the data. We briefly considered Gradient Boosting, which builds models sequentially to correct errors from previous models. However, given our current goals of establishing an interpretable baseline, we decided to start with RandomForest due to its simplicity and faster training time
+
+Additionally, we selected Logistic Regression. It is a widely used baseline for binary classification, it offers good interpretability. Logistic regression is similar to linear regression but instead it is used with a categorical response (trendy or not trendy).
+
+### Import Dataset (Optional)
 
 ```{r}
 # Update this variable with the your own filepath
@@ -794,6 +857,7 @@ Now, we have the required dataset (under the name `yt_df`). We can go ahead and 
 
 #Import dataset
 # yt_df <- read.csv(data_filepath)
+
 ```
 
 ### 1. RandomForest
@@ -841,6 +905,14 @@ accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
 # Print accuracy
 print(paste("Model Accuracy:", round(accuracy * 100, 2), "%"))
 ```
+
+## References
+
+1.  1,800 YouTube videos are posted every minute. [<https://seo.ai/blog/how-many-videos-are-on-youtube>] 
+
+<!-- -->
+
+2.  Avg human attention span was 8 seconds in 2024. [<https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years>.] 
 
 ------------------------------------------------------------------------
 
