@@ -1,0 +1,172 @@
+```{r}
+# Load required libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(rsample)
+```
+
+```{r}
+set.seed(123)
+youtube_data <- read.csv("C:/Users/keert/OneDrive/Desktop/Business Analytics - Tutorials/trending_yt_videos_113_countries_cleaned.csv")
+```
+
+```{r}
+#Define engagement score and trendiness
+#youtube_data$engagement_score <- youtube_data$like_count / youtube_data$view_count
+#youtube_data$trendiness <- ifelse(youtube_data$engagement_score > 0.05 & youtube_data$daily_movement > 0, 1, 0)
+#youtube_data$trendiness <- as.factor(youtube_data$trendiness)
+```
+
+```{r}
+# Create target variable using weighted criteria
+view_threshold <- quantile(youtube_data$view_count, 0.75)
+
+youtube_data <- youtube_data %>%
+  mutate(
+    daily_rank_met = as.integer(daily_rank <= 10),
+    like_ratio_met = as.integer((like_count / view_count) >= 0.05),
+    view_count_met = as.integer(view_count >= view_threshold),
+    weekly_movement_met = as.integer(weekly_movement >= 0),
+
+    # Calculate weighted score (scale to 0-100)
+    weighted_score = (daily_rank_met * 30) + 
+                     (like_ratio_met * 25) + 
+                     (view_count_met * 25) + 
+                     (weekly_movement_met * 20),
+
+    # Create binary target variable
+    trendiness = as.factor(ifelse(weighted_score >= 80, 1, 0))
+  ) %>%
+  select(-daily_rank_met, -like_ratio_met, -view_count_met, -weekly_movement_met)
+
+# Handle missing values
+youtube_data <- youtube_data %>%
+  filter(complete.cases(view_count, like_count, comment_count, daily_rank))
+
+
+# Select relevant features
+features <- c("view_count", "like_count", "comment_count", 
+              "daily_rank", "daily_movement", "weekly_movement")
+
+# Remove rows with NA
+youtube_data <- na.omit(youtube_data[, c("trendiness", features)])
+```
+
+
+
+```{r}
+# Check distribution
+table(youtube_data$trendiness)
+
+# Select features for modeling
+features <- c("view_count", "like_count", "comment_count", 
+              "daily_rank", "daily_movement", "weekly_movement")
+
+youtube_data <- na.omit(youtube_data)
+
+colSums(is.na(youtube_data[, c("trendiness", features)]))
+```
+
+```{r}
+
+set.seed(123)
+split <- initial_split(youtube_data, prop = 0.7, strata = "trendiness")
+train_data <- training(split)
+temp <- testing(split)
+
+split_val_test <- initial_split(temp, prop = 0.66, strata = "trendiness")  # 20/10 split
+val_data <- training(split_val_test)
+test_data <- testing(split_val_test)
+```
+
+
+```{r}
+
+
+# Confirm no NAs exist in any split
+sapply(list(train_data, val_data, test_data), 
+       function(x) sum(is.na(x$trendiness)))
+```
+
+
+```{r}
+# Verify proportions
+cat("Original data proportions:\n")
+prop.table(table(youtube_data$trendiness))
+
+cat("\nTrain data proportions:\n")
+prop.table(table(train_data$trendiness))
+
+cat("\nValidation data proportions:\n")
+prop.table(table(val_data$trendiness))
+
+cat("\nTest data proportions:\n")
+prop.table(table(test_data$trendiness))
+
+```
+
+```{r}
+# Prepare data for modeling
+X_train <- train_data[, features]
+y_train <- train_data$trendiness
+
+X_val <- val_data[, features]
+y_val <- val_data$trendiness
+
+X_test <- test_data[, features]
+y_test <- test_data$trendiness
+
+```
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10, savePredictions = "all")
+```
+
+
+```{r}
+# Train Random Forest Model
+set.seed(123)
+#rf_model <- randomForest(trendiness ~ view_count + like_count + comment_count + 
+                         #daily_rank + daily_movement + weekly_movement,
+                        # data = train_data, 
+                        # ntree = 100,
+                        # importance = TRUE)
+
+rf_model_cv <- train(
+  trendiness ~ view_count + like_count + comment_count + 
+    daily_rank + daily_movement + weekly_movement, 
+  data = train_data, 
+  method = "rf",  # Random forest model
+  trControl = train_control,  # Apply cross-validation
+  ntree = 100,  # Number of trees in the random forest
+  importance = TRUE  # Include feature importance
+)
+
+```
+
+```{r}
+# Print model summary
+print(rf_model_cv)
+```
+
+```{r}
+# Evaluate on validation set
+val_preds <- predict(rf_model, X_val)
+confusionMatrix(val_preds, y_val)
+```
+
+```{r}
+# Final evaluation on test set
+test_preds <- predict(rf_model, X_test)
+confusionMatrix(test_preds, y_test)
+
+```
+
+```{r}
+# Variable importance
+varImpPlot(rf_model)
+```
+
+```{}
+```
