@@ -9,7 +9,15 @@ output: html_document
 
 ### Problem Statement
 
-Predicting Video Trendiness: Identify factors that contribute to a video's likelihood of trending on YouTube. Businesses and content creators could use this to optimize their video content and publishing strategies.
+Capturing the audience's attention in the current digital landscape is a substantial challenge with the endless content at users' fingertips. 1,800 YouTube videos are posted every minute, amounting to a 360 hour increase in available content on the platform [[1](https://seo.ai/blog/how-many-videos-are-on-youtube)]. As a marketing professional, how will ensure your video stands out? This challenge is further exacerbated by humans' ever-decreasing average attention span which, in 2024, was measured at just 8 seconds [[2](https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years)]. Attracting the audience's attention is a challenge enough; sustaining it is yet another. Both aspects are critical for successful marketing campaigns which is why industry professionals such as content creators and product/service marketing teams need to know their audiences, know what keeps them interested, what drives them away, and what levers they can pull to increase their reach. This is where machine learning comes in.
+
+### Task
+
+Develop a machine learning model to classify a video trendiness given the video's metadata, engagement statistics, and temporality.
+
+### Application
+
+This machine learning model can be leveraged by marketing professionals to predict the likelihood that a given YouTube video will become trendy. This information informs tactical choices in the development process, enabling the professional to optimize video content and publishing strategies to increase the chance of the video becoming trendy. A trendy video subsequently increases the video's number of impressions which is a typical KPI (key performance indicator) among marketing teams.
 
 ### Dataset
 
@@ -211,45 +219,6 @@ check_unique_values <- function(df) {
 unique_values_table <- check_unique_values(yt_df) 
 print(unique_values_table)
 ```
-
-#### 3.5. Outlier identification
-
-Next, we will check for outliers in the numerical column of our dataset. We can do this in 2 different ways. 1 - Visually using box plots and 2nd using the IQR, where we calculate the upper and lower boundary of the column (anything outside this boundary is an outlier). Now, we will just detect if there are any outliers using the 2nd method. *[Note: The visual inspection of outliers will be carried out during the EDA].*
-
-We start by defining a `udf` to give us the report on the outliers based on the IQR calculation of each numerical column.
-
-```{r udf_detect_outliers}
-detect_outliers <- function(df) {
-  numeric_cols <- df %>% 
-    select(where(is.numeric))
-  outlier_summary <- data.frame(column = character(), lower_bound = numeric(), 
-                                upper_bound = numeric(), num_outliers = integer(), 
-                                iqr = numeric(), q1 = numeric(), q3 = numeric())
-                                
-  for (col in colnames(numeric_cols)) {
-    q1 <- quantile(numeric_cols[[col]], 0.25, na.rm = TRUE)
-    q3 <- quantile(numeric_cols[[col]], 0.75, na.rm = TRUE)
-    iqr_value <- q3 - q1
-    lower_limit <- q1 - 1.5 * iqr_value
-    upper_limit <- q3 + 1.5 * iqr_value
-    num_of_outliers <- sum(numeric_cols[[col]] < lower_limit | numeric_cols[[col]] > upper_limit, na.rm = TRUE)
-    
-    outlier_summary <- rbind(outlier_summary, data.frame(column = col, lower_bound = lower_limit, 
-                                                         upper_bound = upper_limit, num_outliers = num_of_outliers, 
-                                                         iqr = iqr_value, q1 = q1, q3 = q3))
-  }
-  return(outlier_summary)
-}
-```
-
-```{r}
-outlier_report <- detect_outliers(yt_df)
-print(outlier_report)
-```
-
-<!--# Ryan please update the summary for this part -->
-
-<!--# Also, should we move the outlier detection and treatment to EDA (or) keep it here? -->
 
 ### 4. Export the cleaned data
 
@@ -469,9 +438,244 @@ gc()
 
 <!--# Shalakha, can you please update this? If I remember correctly, you had graphs related to understanding the relationship between age of the video and trendiness -->
 
-### 3. Correlation Analysis \<Content TB Added\>
+### 3. Outlier Identification
 
-<!--# Ryan, can you please update this as well. I saw some correlation analysis in your notebook -->
+Next, we will check for outliers in the numerical column of our dataset. We can do this in 2 different ways. 1 - Visually using box plots and 2nd using the IQR, where we calculate the upper and lower boundary of the column (anything outside this boundary is an outlier). Now, we will just detect if there are any outliers using the 2nd method. *[Note: The visual inspection of outliers will be carried out during the EDA].*
+
+We start by defining a `udf` to give us the report on the outliers based on the IQR calculation of each numerical column.
+
+```{r udf_detect_outliers}
+detect_outliers <- function(df) {
+  numeric_cols <- df %>% 
+    select(where(is.numeric))
+  outlier_summary <- data.frame(column = character(), lower_bound = numeric(), 
+                                upper_bound = numeric(), num_outliers = integer(), 
+                                iqr = numeric(), q1 = numeric(), q3 = numeric())
+                                
+  for (col in colnames(numeric_cols)) {
+    q1 <- quantile(numeric_cols[[col]], 0.25, na.rm = TRUE)
+    q3 <- quantile(numeric_cols[[col]], 0.75, na.rm = TRUE)
+    iqr_value <- q3 - q1
+    lower_limit <- q1 - 1.5 * iqr_value
+    upper_limit <- q3 + 1.5 * iqr_value
+    num_of_outliers <- sum(numeric_cols[[col]] < lower_limit | numeric_cols[[col]] > upper_limit, na.rm = TRUE)
+    
+    outlier_summary <- rbind(outlier_summary, data.frame(column = col, lower_bound = lower_limit, 
+                                                         upper_bound = upper_limit, num_outliers = num_of_outliers, 
+                                                         iqr = iqr_value, q1 = q1, q3 = q3))
+  }
+  return(outlier_summary)
+}
+```
+
+```{r}
+outlier_report <- detect_outliers(yt_df)
+print(outlier_report)
+```
+
+Outliers are very important for us because we seek to identify trendy videos which are inherently outliers. From the outlier report results, we get a better idea of what characteristics the highest performing videos in this dataset possess. That said, we need to look carefully at this report because some of the numbers are not realistic (e.g. negative view, like, and comment counts). We will run a correlation analysis with the "desirable" outliers based on these results and compare to the correlation analysis of the entire dataset.
+
+### 4. Creating the Outlier Dataframe
+
+Let's create our dataframe with "desirable" outliers — in other words, the most trendy videos.
+
+<!--# add relationship between criteria to outlier data? and justification? -->
+
+Our criteria for being a "desirable" outlier is as follows:
+
+1.  Like-to-view ratio is in the top 5th percentile
+2.  Comment-to-view ratio is in the top 5th percentile
+3.  View count is in the top 25th percentile
+4.  Daily rank is between 1-10
+5.  Daily movement is \>= -4
+6.  Weekly movement \>= 0
+
+Since criteria #3-6 are based on existing variables in the dataset, let's start by establishing the ratios for criteria #1 and #2.
+
+```{r establish like-to-view and comment-to-view ratios}
+yt_df <- yt_df %>%
+  mutate(ratio_like_view = like_count / view_count)
+
+yt_df <- yt_df %>%
+  mutate(ratio_comment_view = comment_count / view_count)
+```
+
+With those ratios established, we can now filter videos according to our defined criteria. Of course, this is a simpler process because the rest of the criteria's variables are already present in our main dataframe. Therefore, we can simply filter data by variable and add rows to a new dataframe. We call this new dataframe "trendy_df_numeric" because in order to properly run the correlation analysis, we need data in numerical form, not character. There will still be characters in this dataframe, but we will convert them in the next section when we begin the correlation analysis.
+
+```{r filter outlier videos to the df}
+trendy_df_numeric <- yt_df %>% 
+  filter(
+    # Criteria 1
+    ratio_like_view >= quantile(ratio_like_view, 0.05, na.rm = TRUE),
+    # Criteria 2
+    ratio_comment_view >= quantile(ratio_comment_view, 0.05, na.rm = TRUE),
+    # Criteria 3
+    view_count >= quantile(view_count, 0.75, na.rm = TRUE),
+    # Criteria 4
+    daily_rank >= 1 & daily_rank <= 10,
+    # Criteria 5
+    daily_movement >= -4,
+    # Criteria 6
+    weekly_movement >= 0
+  )
+```
+
+Great. We now have a dataframe with videos trending according to our criteria.
+
+### 5. Principal Component Analysis
+
+Now, we can begin the PCA. First thing's first, though: we need to convert non-numeric columns to become numeric. Just to confirm, let's identify which columns are non-numeric and need to be converted.
+
+```{r identify non-numeric}
+str(trendy_df_numeric)
+```
+
+We can see that the following columns are non-numeric.
+
+1.  title
+2.  snapshot_date
+3.  publish_date
+4.  video_tags
+
+Because snapshot_date is the same for all videos, we can drop that column. We will also drop video_tags and that will be explored in a separate section.
+
+Let's first convert title and publish_date:
+
+```{r numeric conversion}
+#title
+trendy_df_numeric$title_numeric <- as.numeric(factor(trendy_df_numeric$title))
+
+#publish_date
+trendy_df_numeric$date_numeric <- as.numeric(format(ymd_hms(trendy_df_numeric$publish_date), "%Y%m%d"))
+```
+
+With these converted to numeric, we need also to remove the original character versions of these columns in addition to snapshot_date and video_tags.
+
+```{r drop now irrelevant columns}
+trendy_df_numeric <- trendy_df_numeric %>% select(-c(title, publish_date, video_tags, snapshot_date))
+```
+
+We now move to standardize our data in preparation for the PCA (Principal Component Analysis). Because the ratio column values are quite small, standardizing them causes them to become nulls and subsequently gives an error when we run the PCA. We've already identified the top 5% of each ratio and can therefore safely drop those columns. The like, comment, and view columns will remain.
+
+```{r drop ratio columns}
+trendy_df_numeric <- trendy_df_numeric %>% select(-c(ratio_like_view, ratio_comment_view))
+```
+
+Let's drop any nulls and double check that we are set on that front.
+
+```{r drop null}
+trendy_df_numeric <- trendy_df_numeric %>% drop_na()
+colSums(is.na(trendy_df_numeric))
+```
+
+With all columns being numeric, relevant and of appropriate values, we can standardize our trendy dataset.
+
+```{r standardize}
+trendy_standardized <- scale(trendy_df_numeric[, !names(trendy_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
+summary(trendy_standardized)
+```
+
+The trendy dataset (trendy_standardized) is now ready for PCA.
+
+Let's quickly prepare the full dataset for PCA so we can compare the results side-by-side. Since we will be dropping columns and converting others, let's create a new dataframe for us to work in specifically for the PCA.
+
+```{r PCA df}
+full_df_numeric <- yt_df
+```
+
+First, we convert the same columns to numeric: title and publish_date.
+
+```{r numeric conversion}
+#title
+full_df_numeric$title_numeric <- as.numeric(factor(full_df_numeric$title))
+
+#publish_date
+full_df_numeric$date_numeric <- as.numeric(format(ymd_hms(full_df_numeric$publish_date), "%Y%m%d"))
+```
+
+We then drop the same columns so we have the same variables as the trendy dataframe.
+
+```{r drop columns to equalize}
+full_df_numeric <- full_df_numeric %>% select(-c(title, publish_date, video_tags, snapshot_date, ratio_like_view, ratio_comment_view))
+```
+
+Let's check for nulls and drop any that arise.
+
+```{r drop null}
+colSums(is.na(full_df_numeric))
+full_df_numeric <- full_df_numeric %>% drop_na()
+colSums(is.na(full_df_numeric))
+```
+
+Nice. We are now in a position to standardize.
+
+```{r standardize}
+full_standardized <- scale(full_df_numeric[, !names(full_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
+```
+
+Amazing. Now, we have two standardized dataframes — one for the trendy/outliers and one for the full dataset. Now the moment we have all been waiting for (in this section): the PCA!
+
+```{r pca for trendy and full}
+cat("\n====================== Principal Component Analysis of trendy_standardized =====================\n\n")
+results_trendy <- prcomp(trendy_standardized)
+summary(results_trendy)
+cat("\n================================================================================================\n")
+
+cat("\n====================== Principal Component Analysis of full_standardized =======================\n\n")
+results_full <- prcomp(full_standardized)
+summary(results_full)
+cat("\n================================================================================================\n")
+```
+
+For both datasets, 6 principal components comprise \>91% of the cumulative variance. The full_standardized set reaches 90% slightly before trendy_standardized, however. Let's take a look at the component loadings for the PCAs for a more comprehensive view.
+
+```{r pca identification}
+cat("\n====================== Principal Component Loadings: trendy_standardized ===================\n\n")
+print(results_trendy$rotation)
+cat("\n============================================================================================\n")
+
+cat("\n====================== Principal Component Loadings: full_standardized =====================\n\n")
+print(results_full$rotation)
+cat("\n============================================================================================\n")
+```
+
+Optional: sort variable loadings by absolute value for each PC. This makes the loading chart easier to scan through when looking for the most influential variables in each PC.
+
+```{r organized pca loadings}
+loadings_trendy <- results_trendy$rotation
+
+cat("\n====================== Principal Component Loadings: trendy_standardized ===================\n")
+for (pc in colnames(loadings_trendy)) {
+  cat("\n=========================================")
+  cat("\nTop contributors to", pc, ":\n")
+  print(sort(abs(loadings_trendy[, pc]), decreasing = TRUE))
+}
+
+loadings_full <- results_full$rotation
+
+cat("\n====================== Principal Component Loadings: full_standardized ===================\n")
+for (pc in colnames(loadings_full)) {
+  cat("\n=========================================")
+  cat("\nTop contributors to", pc, ":\n")
+  print(sort(abs(loadings_full[, pc]), decreasing = TRUE))
+}
+```
+
+**Conclusion**
+
+Taking a look at the variable contributions to each Principal Component, we deduce the following:
+
+-   Like, comment, and view counts hold significant loadings in both datasets' PC1 indicating that audience engagement is a primary driver of variance (Trendy PC1: 28% variance; Full dataset PC1: 29% variance).
+
+-   For the trendy dataset, daily rank, daily movement, and weekly movement have a stronger impact in the trendy dataset's PCA compared to that of the full dataset. Specifically, these metrics have a large influence in trendy dataset's PC2 and PC3 and relatively weaker influence in the full dataset PCs. While this is logical, these results do underscore the intertwined nature these metrics have with trendiness.
+
+-   For the full dataset, earlier PCs are influenced more heavily by engagement metrics such as like, comment, and view counts. But in later PCs such as PC3 and PC4, metadata such as title and date play a larger role.
+
+Interpretations:
+
+-   The trendy dataset presents a more concentrated pattern as engagement and movement metrics were central in the PCs. This suggests a tighter profile of metrics to consider when aiming to predict virality.
+
+-   In contrast, the full dataset's PC loadings were more varied which makes it challenging to predict virality based on this larger dataset.
 
 ------------------------------------------------------------------------
 
@@ -510,118 +714,6 @@ export_data <- function(df, input_filepath){
 }
 
 export_data(yt_df, data_filepath)
-```
-
-### 2. Principle Component Analysis (PCA)
-
-#### Import Dataset (Optional)
-
-```{r}
-# Update this variable with the your own filepath 
-# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_feature_engg.csv"
-
-#Import dataset # yt_df <- read.csv(data_filepath)
-```
-
-```{r filter_trendy_videos}
-# trendy = daily rank of 10 or higher and a weekly movement of 5 or less
-trendy_df_numeric <- dta_draw_from %>%
-  filter(daily_rank >= 1 & daily_rank <= 10, weekly_movement < 5)
-
-head(trendy_df_numeric)
-```
-
-Change certain non-numeric columns to numeric columns (namely: title, country, channel_id, publish data, video_id) Will try to do: description; those will be more complicated, though Therefore excluding: channel_name (covered with channel_id) Excluding due to null: language, video_tags.
-
-```{r}
-#title
-trendy_df_numeric$title_numeric <- as.numeric(factor(trendy_df_numeric$title))
-
-#publish date
-trendy_df_numeric$date_numeric <- as.numeric(format(ymd_hms(trendy_df_numeric$publish_date), "%Y%m%d"))
-
-#country
-trendy_df_numeric$country_numeric <- as.numeric(factor(trendy_df_numeric$country))
-
-#channel_name
-trendy_df_numeric$channel_name_numeric <- as.numeric(factor(trendy_df_numeric$channel_name))
-
-#language (not including as there are too many nulls; will delete column)
-#trendy_df_numeric$primary_language_numeric <- as.numeric(as.factor(trendy_df_numeric$language))
-
-#video_id
-trendy_df_numeric$video_id_numeric <- as.numeric(as.factor(trendy_df_numeric$video_id))
-```
-
-Drop character columns already converted
-
-```{r drop_character_converted}
-#trendy_df_numeric <- trendy_df_numeric %>% select(-c(title, publish_date, country, channel_name, language, channel_id, video_id, video_tags, description)) #trendy_df_numeric <- trendy_df_numeric %>% select(-c(primary_language_numeric))
-```
-
-Check nulls
-
-```{r check_null}
-colSums(is.na(trendy_df_numeric))
-```
-
-Drop rows with nulls (some in title)
-
-```{r drop_null}
-trendy_df_numeric <- trendy_df_numeric %>% drop_na(title_numeric) colSums(is.na(trendy_df_numeric))
-```
-
-Standardize
-
-```{r standardize_cols}
-trendy_standardized <- scale(trendy_df_numeric[, !names(trendy_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
-```
-
-Run PCA
-
-```{r}
-cat("\n====================== Principal Component Analysis of trendy_standardized =====================\n\n") 
-results <- prcomp(trendy_standardized) 
-summary(results) 
-cat("\n================================================================================================\n") 
-```
-
-Result: PC8 is 90.0%
-
-See which variables are associated with each principle component
-
-```{r pca_identification}
-cat("\n====================== Principal Component Loadings =====================\n\n") 
-print(results$rotation) 
-cat("\n=========================================================================\n")
-```
-
-Findings for PC8 loadings: PC8 in order of absolute value: comment_count 0.71, date_numeric 0.38, view_count 0.40, daily_movement 0.27, weekly_movement 0.17, channel_name_numeric 0.14, title_numeric 0.11 [end top 8]; daily_rank 0.09, country_numeric 0.08, video_id_numeric 0.05
-
-```{r pca_visualization}
-
-visualization_df <- as.data.frame(results$rotation) 
-
-visualization_df$variable <- rownames(visualization_df)  
-
-ggplot(visualization_df, aes(x = variable, y = PC8)) +   
-  geom_bar(stat = "identity") +   
-  coord_flip() +   
-  theme_minimal() +   
-  labs(title = "Feature Importance in PC8")
-```
-
-```{r pca_contribution_again}
-library(factoextra)  
-fviz_pca_var(results, col.var = "contrib")  # Contribution plot
-```
-
-From this, we can see the following variables contribute the most (6): like_count, view_count, comment_count, daily_rank, daily_movement, weekly_movement The ones contributing the least (5): country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric
-
-Drop insignificant columns
-
-```{r drop_insignificant}
-#dta_draw_from <- dta_draw_from %>% select(-c(country_numeric, title_numeric, channel_name_numeric, date_numeric, video_id_numeric)) #dim(dta_draw_from)
 ```
 
 #### Import Dataset (Optional)
