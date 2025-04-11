@@ -1058,7 +1058,9 @@ So, based on these conditions we will be using the `Logistic Regression` model t
 
 3.  **Dataset Contents:** This dataset contains the top 50 trending videos across 113 countries but is not specifically limited to marketing-oriented videos. Some of these videos are marketing content, others are made by content creators whose videos are marketing, in essence, as they build upon their brand. In this sense, a potential limitation of this data is that the insights may not be applicable to marketing-oriented content due to the general nature of the dataset. We acknowledge this and believe that an understanding of trendiness itself is valuable for marketing professionals and that they will be able to use these insights to boost their marketing efforts.
 
-4.  **R Literacy:** The R-savviness of the marketing professional may limit their ability to effectively leverage this machine learning model to their advantage. We strive to make our conclusion and application section as clear as possible for those who may be unfamiliar with R, there remains the risk of misinterpretation.
+4.  **PCA Columns:** For our PCA, we used a dataset with less dimensionality than the original. We decided to drop columns which did not have many unique values and/or could not be converted to be numeric. In doing this, we reduced our dimensionality pre-PCA to 8 columns. One limitation of this reduction is that we overlooked a column which turns out to be valuable.
+
+5.  **R Literacy:** The R-savviness of the marketing professional may limit their ability to effectively leverage this machine learning model to their advantage. We strive to make our conclusion and application section as clear as possible for those who may be unfamiliar with R, there remains the risk of misinterpretation.
 
 ### **Further Steps for Improvement**
 
