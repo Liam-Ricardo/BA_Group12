@@ -71,7 +71,7 @@ yt_df <- read.csv(data_filepath)
 
 > *Tip: You can run all the cells at once to get the final model (or) you can import different versions of the dataset at particular sections and run the remainder of the codes. The latter is suggested, because of RStudio's limited memory capacity. The places where you can import the already created dataset will be marked with `import dataset (optional)` text.*
 
-### 2. Inspecting the raw data
+### 2. Inspecting the Raw Data
 
 We are just performing an initial check on the raw data. We do not manipulate any data points here as the main aim is to understand the raw data. First, let's look at the structure of the data.
 
@@ -147,13 +147,25 @@ Most industry professionals are also very interested in the audience's interacti
 
 In this step, we will clean the raw data as much as possible, so that it is Exploratory Data Analysis (EDA) ready. First we start with making sure all the column have appropriate datatypes (like `date` type values in `snapshot_date` column).
 
-#### 3.1. Standardizing column names and removing duplicate values
+#### 3.1. Standardizing Column Names and Removing Duplicate Values
 
 Let's define a user-defined function (`udf`) to do the initial cleaning of the dataset. The function will:
 
-1.  Standardizing the column names (lower_case)
-2.  Dropping duplicate rows
-3.  Dropping unnecessary columns based on business knowledge reasoning is given later in EDA (This step was originally supposed to be at the end of EDA, but due to RStudio's memory constraints we are performing it here) [`channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language]`.
+1.  Standardize the column names (lower_case)
+
+2.  Drop duplicate rows
+
+3.  Drop unnecessary columns: [`channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language]`. This step was originally supposed to be at the end of EDA, but due to RStudio's memory constraints we are performing it here. Rationale is as follows:
+
+    `kind` : Only one unique value (Youtube video).
+
+    `country` , `language` : We are concerned with macro trends in the data, not country or language-specific trends. Further, the language column had a large number of blank/null values.
+
+    `description` : A large number of blank/null values and converting the description column to numeric with Natural Language Processing (NLP) would be complex.
+
+    `channel_name` , `channel_id` : Minimal contribution to trendiness.
+
+    `thumbnail_url`, `video_id` : No contribution to trendiness.
 
 ```{r udf_std_colnames}
 clean_data <- function(df){      
@@ -174,11 +186,11 @@ clean_data <- function(df){
 yt_df <- clean_data(yt_df)
 ```
 
-As you can see, the column names are standardized with this format - `small_case` and we have also removed any duplicate columns. Our dataset didn't have any duplicate values, for which we are very grateful.
+As you can see, the column names are standardized with this format (`small_case`) and we have also removed duplicate columns. Our dataset didn't have any duplicate values, for which we are very grateful.
 
 #### 3.2. Tidy up the non-numerical columns
 
-The non-numerical columns tend to have special characters (like \$, %, etc.) that might not be useful for classifying when a video will become trendy or not. Also, non-numerical columns might contain some ASCII or Unicode characters as well (such as `"\n"`) that might be interfering with the readability and analysis of the values. So, its better to treat them by removing them from our dataset.
+The non-numerical columns tend to have special characters (like \$, %, etc.) that might not be useful for classifying when a video will become trendy. Also, non-numerical columns might contain some ASCII or Unicode characters as well (such as `"\n"`) that might be interfering with the readability and analysis of the values. So, it's better to treat them by removing them from our dataset.
 
 ```{r udf_clean_char_cols}
 clean_character_columns <- function(df) {   
@@ -201,7 +213,7 @@ yt_df <- clean_character_columns(yt_df)
 
 Here, the function `clean_character_columns` checks if the column is of type `character` and removes all the Unicode chars (such as `"\n","\r","\t"`). Finally, it trims the leading, trailing and extra spaces with the `str_squish(.)` function.
 
-#### 3.3. Null value treatment
+#### 3.3. Null Value Treatment
 
 Now, its time to treat the null values. First, let's define a `udf` to analyse the data and fetch us how many null values are present in each column.
 
