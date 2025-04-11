@@ -365,10 +365,10 @@ analyze_numerical(yt_df)
 1.  The right-skew in `view_count`, `like_count`, and `comment_count` suggests that a small proportion of content attracts a disproportionately large share of views, likes, and comments. This insight is crucial for content creators or platform managers, as it highlights the importance of identifying and potentially promoting content with the potential to become highly popular. 
 2.  The distributions of `daily_movement` and `weekly_movement` being centered around zero might imply a certain level of stability in the underlying system, with fluctuations occurring around a central equilibrium. However, the outliers in these variables could indicate instances of significant shifts. These might be of most interest for our business problem to classify trendy videos.
 
-For an more detailed overview of analysis per numerical variable and corresponding boxplot, please see the table below.
+For a more detailed overview of analysis per numerical variable and corresponding plot, please see the table below.
 
 | Variable | Distribution | Range and Outliers | Density |
-|----|----|----|----|
+|------------------|------------------|------------------|------------------|
 | `daily_rank` | The histogram of `daily_rank` shows a right-skewed distribution, indicating that most of the values are concentrated towards the lower end of the rank, with fewer occurrences of higher rank values. | The boxplot confirms the right-skewness and suggests a limited range of `daily_rank` values, mostly between 0 and 25. There don't appear to be significant outliers. | The density plot illustrates the skew more clearly, with a peak at the lower end and a tail extending to the right. |
 | `daily_movement`  | The histogram of `daily_movement` shows a distribution centered around zero, with frequencies decreasing as you move away from zero in both positive and negative directions. | The boxplot shows the median `daily_movement` is around zero, with the interquartile range (IQR) indicating the spread of the central 50% of the data. The whiskers suggest a range from approximately -40 to +40, with a few potential outliers beyond these ranges. | The density plot shows a peak around zero, confirming the distribution's center, and tails off symmetrically, suggesting a distribution that might be close to normal but possibly with heavier tails. |
 | `weekly_movement` | Similar to `daily_movement`, the histogram of `weekly_movement` is centered around zero, with a decrease in frequency as you move towards the extremes. | The boxplot indicates the median `weekly_movement` is approximately zero. The IQR represents the spread of the central 50%. The whiskers extend to around -40 and +40, with some outliers beyond these points. | The density plot shows a peak at zero and a symmetric decrease on both sides, resembling a normal distribution curve, but again, the tails might be heavier. |
@@ -481,7 +481,7 @@ gc()
 
 There are also a few columns that seem to be irrelevant in helping our model predict trendiness of a video. These are: `channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language.`
 
-The variable `language` had alot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we decided not including this variable as it did not seem as important for predicting trendiness.
+The variable `language` had a lot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are even 2280084 values "missing" which are instances in which the language of the video was not recognized. This is too much so we decided to not include this variable.
 
 ### 2. Bivariate Analysis \<Content TB Added\>
 
@@ -865,7 +865,7 @@ Additionally, we selected Logistic Regression. It is a widely used baseline for 
 
 ```{r}
 # Update this variable with the your own filepath 
-# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_model_training.csv"
+ data_filepath <- "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12_Final/trending_yt_videos_113_countries_model_training.csv"
 
 #Import dataset
 yt_df <- read.csv(data_filepath)
@@ -1040,7 +1040,7 @@ importance_df %>%
   theme_minimal()
 ```
 
-Same as `Random Forest`, we can see that `video_tag_score` isrthe least important variable than the others in predicting the video's trendiness.
+Samilar as `Random Forest`, we can see that `video_tag_score` is the least important variable compared to `title_score` , `engagement_score` , `comment_score` , and `video_age`.
 
 ```{r logit_model_preds}
 # Predict on your validation set
