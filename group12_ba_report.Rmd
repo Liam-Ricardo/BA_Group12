@@ -1063,27 +1063,38 @@ pred_class <- predict(logit_model, newdata = X_val)
 confusionMatrix(pred_class, y_val, positive="Yes")
 ```
 
-Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
+Based on accuracy both the models have higher values, but we need good precision (Postive Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
 
 So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title.
 
 ## Conclusion
 
-To summarize, the best model suited for our business problem – whether a YouTube video would become trendy or not is the `Logistic Regression` model. For industry experts involved in setting up marketing campaigns it is good to noticed that the interaction of an audience with your content is the main driver for trendiness. The ratios that are best tracked of a single video are like to view and comment to view count. This is in line with what is already commonly seen as a best practice to focus on.
+In conclusion, the `Logistic Regression` model is the most suitable for addressing our business problem: predicting whether a YouTube video will become trendy. While both models achieved high accuracy, Logistic Regression demonstrated better balance in precision and recall, which is essential for minimizing both false positives and false negatives.
 
-Next to this the title needs to contain the right words to increase likelihood of trendiness of a video. Based on the current dataset we have defined a list called `final_title_words` that can be used to see which words to include in the title.
+Our analysis confirms that *audience engagement* is the most critical factor influencing a video's trendiness. Specifically, the like-to-view and comment-to-view ratios emerged as strong predictors. These metrics reflect the strength of user interaction and should therefore be prioritized when evaluating or planning video content.
 
-and `final_tags_words`
+In addition, the title of the video plays a important role in capturing initial attention. Videos that contain certain high-performing keywords (as defined in our generated list `final_title_words`) have a higher likelihood of trending.
 
-In contrast to some best practices, in which it is believed that trendiness of a video has to be reached within a certain time frame e.g. 24-72 hours, our results suggest that this is of little influence compared to the engagement metrics. Another over stressed best practice is to make sure you use much as possible and the correct tags for a video, this has also been shown by the model evaluation to not be as important compared to engagement metrics.
+Interestingly, our model challenges two commonly held industry assumptions:
+
+-    *Time-sensitivity* (e.g., going viral within 24–72 hours) appears to be less influential than engagement metrics.
+
+-   *Video tags,* although often emphasized in optimization strategies, show limited predictive value for trendiness compared to likes, comments, and title wording.
 
 ### Recommendations
 
-Based on the results we have the following recommendations for industry professionals to increase the likelihood of a video to reach trendiness:
+To improve the likelihood that a video will trend, we recommend the following strategies:
 
-1.  Prioritize engagement metrics such as likes and comments over tags and video age.
-2.  Use as many words as possible from the generated list called `final_title_words` to include in your video's title.
-3.  To further optimize use the generated list called `final_tags_words` to ensure best tags for trendiness.
+1.   **Focus on Boosting Engagement:**
+    -   Prioritize increasing likes and comments, as these are the strongest predictors of trendiness.
+    -   Tactics to consider include launching videos alongside giveaways, exclusive offers, or campaigns that encourage users to like and comment.
+2.  **Optimize Video Titles:**
+    -   Place strong emphasis on crafting an effective title, as it is the second most influential factor after engagement.
+
+    -    Incorporate as many relevant terms as possible from the `final_title_words` list into your video titles as they were identified as having the highest positive impact on trendiness in our model.
+3.   **Refine Use of Tags (Optional):**
+    -   Consider tags as an additional optimization lever after engagement and titles are addressed.
+    -   While tags are less influential, you can still use the `final_tags_words` list to inform your selection of tags.
 
 ### Limitations
 
