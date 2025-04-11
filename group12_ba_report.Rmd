@@ -215,7 +215,7 @@ Here, the function `clean_character_columns` checks if the column is of type `ch
 
 #### 3.3. Null Value Treatment
 
-Now, its time to treat the null values. First, let's define a `udf` to analyse the data and fetch us how many null values are present in each column.
+Now, it's time to treat the null values. First, let's define a `udf` to analyse the data and fetch the number of null values present in each column.
 
 ```{r udf_null_value}
 analyze_columns <- function(df) {   
@@ -248,17 +248,17 @@ null_df <- analyze_columns(yt_df)
 print(null_df)
 ```
 
-As visible in the table, only the column `video_tags` has null values in them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that have null values, but we will decide this during our feature selection step - to ensure we are not losing any valuable data.
+As visible in the table, only the column `video_tags` has null values in them—almost 1 million of them. We cannot treat them with any common values, since they are dependent on the video itself (i.e. each record). We can drop the rows that have null values, but we will decide this during our feature selection step to ensure we are not losing any valuable data.
 
 #### 3.4. Dropping Unnecessary columns
 
-We will do a preliminary feature engineering, by dropping unnecessary columns and the columns that might not be useful based on the subject knowledge. Some basic conditions for determining not-so-useful columns are:
+We will do preliminary feature engineering by dropping unnecessary columns and columns that might not be useful based on the subject knowledge. Basic conditions for determining not-so-useful columns are:
 
 1.  Columns with more than 75% null values
 2.  Columns with only 1 unique values
 3.  Entire column/row being null
 
-Now let's check the number of unique values and if there are columns with only 1 unique value we will drop them.
+Now, let's check the number of unique values and if there are columns with only a singular unique value we will drop them.
 
 ```{r udf_check_unique_values}
 check_unique_values <- function(df) {   
@@ -272,9 +272,9 @@ unique_values_table <- check_unique_values(yt_df)
 print(unique_values_table)
 ```
 
-Okay, clearly there are no columns with only 1 unique value so let's continue.
+Okay, there are no columns with a singular unique value so let's continue.
 
-### 4. Export the cleaned data
+### 4. Export the Cleaned Data
 
 Finally, we will export the cleaned data. So, that we can use a different notebook to perform the EDA. For presenting our analysis we have included this EDA notebook by embedding it into the full report. This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
 
