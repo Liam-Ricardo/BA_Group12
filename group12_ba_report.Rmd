@@ -9,19 +9,21 @@ output: html_document
 
 ### Problem Statement
 
-Capturing the audience's attention in the current digital landscape is a substantial challenge with the endless content at users' fingertips. 1,800 YouTube videos are posted every minute, amounting to a 360 hour increase in available content on the platform [[1](https://seo.ai/blog/how-many-videos-are-on-youtube)]. As a marketing professional, how will you ensure your video stands out? This challenge is further exacerbated by humans' ever-decreasing average attention span which, in 2024, was measured at just 8 seconds [[2](https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years)]. Attracting the audience's attention is challenging enough; sustaining it is yet another. Both aspects are critical for successful marketing campaigns which is why industry professionals such as content creators and product/service marketing teams need to know their audiences, know what keeps them interested, what drives them away, and what levers they can pull to increase their reach. This is where machine learning comes in.
+Capturing the audience's attention in the current digital landscape is a substantial challenge with the endless content at users' fingertips. Every minute, 1,800 YouTube videos are posted, amounting to a 360 hour increase in available content on the platform [[1](https://seo.ai/blog/how-many-videos-are-on-youtube)]. As a marketing professional, how do you ensure your video stands out? This challenge is further exacerbated by humans' ever-decreasing average attention span which, in 2024, was measured at just 8 seconds [[2](https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years)].
+
+Attracting the audience's attention is challenging enough; sustaining it is yet another. Both aspects are critical for successful marketing campaigns which is why industry professionals such as content creators and product/service marketing teams need to know their audiences, know what keeps them interested, what drives them away, and what levers they can pull to increase their reach. This is where machine learning comes in.
 
 ### Task
 
-Develop a machine learning model to classify a video trendiness given the video's metadata, engagement statistics, and temporality.
+Develop a machine learning model to classify a video's trendiness given the video metadata, engagement statistics, and temporal rankings.
 
 ### Application
 
-This machine learning model can be leveraged by marketing professionals to predict the likelihood that a given YouTube video will become trendy. This information informs tactical choices in the development process, enabling the professional to optimize video content and publishing strategies to increase the chance of the video becoming trendy. A trendy video subsequently increases the video's number of impressions which is a typical KPI (key performance indicator) among marketing teams. This in turn usually influences engagement metrics, another typical KPI among marketing campaigns and industry professionals.
+This machine learning model can be leveraged by marketing professionals to predict the likelihood that a given YouTube video will become trendy. This information informs tactical choices in the development process, enabling the professional to optimize video content and publishing strategies to increase the chance of the video becoming trendy. A trendy video subsequently increases the video's number of impressions which is a typical KPI (key performance indicator) among marketing teams. This, in turn, usually influences engagement metrics, another typical KPI among marketing campaigns and industry professionals.
 
 ### Dataset
 
-We are using the dataset from Kaggle - [Trending Youtube Video Statistics (113 Countries)](https://www.kaggle.com/datasets/asaniczka/trending-youtube-videos-113-countries). Top 50 latest trending videos on YouTube across 113 countries. With **daily updates**, this dataset provides comprehensive information about the top trending videos, including daily rankings, movement trends, view counts, likes, comments, and more.
+We are using the dataset from Kaggle - [Trending Youtube Video Statistics (113 Countries)](https://www.kaggle.com/datasets/asaniczka/trending-youtube-videos-113-countries). Top 50 latest trending videos on YouTube across 113 countries. With **daily updates**, this dataset provides comprehensive information about the top trending videos, including daily rankings, movement trends, view counts, likes, comments, and more. We are using a version of the dataset downloaded on 20 February 2025.
 
 ------------------------------------------------------------------------
 
@@ -53,7 +55,7 @@ library(tidyverse)
 set.seed(123)
 ```
 
-Now that we have all the required libraries imported, let's dive into analyzing the dataset and train a ML model to classify the video as a Trending video or not. First let's start by importing the dataset and cleaning it.
+Now that we have all the required libraries imported, let's dive into analyzing the dataset and train a ML model to classify the video as a Trending video or not. First, let's start by importing the dataset and cleaning it.
 
 #### Import Dataset
 
@@ -71,28 +73,28 @@ yt_df <- read.csv(data_filepath)
 
 ### 2. Inspecting the raw data
 
-We are just performing an initial check on the raw data. We do not manipulate any data points here. The main aim is to understand the raw data. First, we will check the structure of the data.
+We are just performing an initial check on the raw data. We do not manipulate any data points here as the main aim is to understand the raw data. First, let's look at the structure of the data.
 
 ```{r str_dataset}
 # Structure of the dataset 
 str(yt_df)
 ```
 
-As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check `terminal` output for better readability]*
+As we can see, we have a lot of `chr` datatypes and a few of `int` data type. Next, we will check the summary statistics (like mean, median, min and max of the numerical columns and length, class, mode for non-numerical columns) *[Tip: Check `console` output for better readability]*
 
 ```{r summary_dataset}
 # Summary statistics 
 summary(yt_df)
 ```
 
-After we got a glimpse, of what we have in hand in the raw data. Let's visualize it in the table format and soak in the beauty. *[Tip: Use the arrows to navigate to other columns]*
+Now that we have a glimpse of what raw data we are dealing with, let's visualize it in the table format to soak in its beauty. *[Tip: Use the arrows to navigate to other columns]*
 
 ```{r head_dataset}
 # First few rows 
 head(yt_df)
 ```
 
-Now, its time to understand how many rows and columns we have in the raw data. Trust us, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come in handy. And after data pre-processing, later on in this report, we will compare the final model training dataset with the raw data it as this is a good practice to do.
+Now, it's time to understand how many rows and columns we have in the raw data. Trust us, this step is as important as every other steps. It might not seem like an great insight right now, but if and when we have to merge this dataset with another, the original dimensions will come in handy. And after data pre-processing, later on in this report, we will compare the final model training dataset with the raw data it as this is a good practice.
 
 ```{r dimensions_dataset}
 # Dimensions of the dataset 
@@ -115,23 +117,23 @@ cat("\nNon-Numerical Columns:\n")
 cat(non_numerical_columns, sep = "\n")
 ```
 
-With 18 columns not all of them will be relevant for predicting whether a YouTube video becomes trendy or not. But at first-sight the following columns are worth diving deeper into:
+With 18 columns, not all of them will be relevant for predicting whether a YouTube video becomes trendy or not. But at first-sight the following columns are worth diving deeper into:
 
-[daily_rank:]{.underline} This is the position a video has at a given day. The ranking ranges from 1-50, in which 1 is the highest rank and 50 the lowest. The ranking is done of all videos within a country.
+[daily_rank:]{.underline} This is the position a video has at a given day. The ranking ranges from 1-50, in which 1 is the highest rank and 50 the lowest. The ranking is done of all videos within a country (a total of 113 countries in the dataset).
 
-[daily_movement:]{.underline} This shows how much movement in ranking a video had at a given day.
+[daily_movement:]{.underline} This shows how much movement in ranking a video had at a given day. Movement is bounded between -49 to +49.
 
-[weekly_moment:]{.underline} Similar to `daily_movement` but then movement measured within a singel week.
+[weekly_moment:]{.underline} Similar to `daily_movement` but then movement measured within a single week. Again bounded between -49 to +49.
 
 [view_count:]{.underline} The amount of views a video has had, which is one of the primary KPIs for marketing campaigns and content creators.
 
-Most industry professionals are also very interested in the interaction between their content and audience and for this they keep track of engagement metrics. Our dataset also contains a few columns that are very suitable to be part of engagement metrics:
+Most industry professionals are also very interested in the audience's interaction with the content and engagement metrics track this relationship. Our dataset contains a few columns which are well-suited to be part of engagement metrics. Here they are:
 
 [like_count:]{.underline} This is the total likes a video has received. It is also an important KPI and might become part of an engagement metric variable later on in the analysis.
 
 [comment_count:]{.underline} Similar to `like_count` but then done with regards to comments per video.
 
-**Summary insights**
+**Summary of insights gained:**
 
 1.  We have 2,720,499 rows and 18 columns in our dataset
 
@@ -139,7 +141,7 @@ Most industry professionals are also very interested in the interaction between 
 
 3.  The `int` columns seems to be properly formatted (i.e. without any `str` in between)
 
-4.  At first-sight interesting columns for predicting trendiness are `daily_rank` , `daily_movement` ,`weekly_movement` , and `view_count` . For engagement metrics columns `like_count` and `comment_count` seem relevant.
+4.  At first sight, interesting columns for predicting trendiness are `daily_rank`, `daily_movement`, `weekly_movement`, and `view_count`. For engagement metrics columns `like_count` and `comment_count` are relevant.
 
 ### 3. Data Pre-Processing
 
@@ -1043,6 +1045,25 @@ confusionMatrix(pred_class, y_val, positive="Yes")
 Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
 
 So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title. Doing this will keep the users engaged and it will make your video to come out on top of the trending list.
+
+## Conclusion
+
+[conclusion and recommendations of Liam]
+
+### Limitations
+
+1.  **Data Quality:** First, we must start by acknowledging the quality of the data. The saying goes: “garbage in, garbage out.” In this sense, we are limited to the quality of data the author of the dataset has gathered. The limitation here is that with garbage data, we cannot derive great insights. Similarly, if the data is falsified, we cannot derive realistic insights. While we have verified a handful of the videos listed in the set, we make the assumption that the rest of the set is also real data.
+
+2.  **Data Temporality:** We must also consider the temporality of the data. We started with a Kaggle dataset of trending videos downloaded on 20 February 2025. It is possible that videos trending in February 2025 do not reflect general conditions of trendiness during other periods of time. However, we believe it is reasonable to assume that our insights derived from this dataset can be safely applied to other times of the year.
+
+3.  **Dataset Contents:** This dataset contains the top 50 trending videos across 113 countries but is not specifically limited to marketing-oriented videos. Some of these videos are marketing content, others are made by content creators whose videos are marketing, in essence, as they build upon their brand. In this sense, a potential limitation of this data is that the insights may not be applicable to marketing-oriented content due to the general nature of the dataset. We acknowledge this and believe that an understanding of trendiness itself is valuable for marketing professionals and that they will be able to use these insights to boost their marketing efforts.
+
+4.  **R Literacy:** The R-savviness of the marketing professional may limit their ability to effectively leverage this machine learning model to their advantage. We strive to make our conclusion and application section as clear as possible for those who may be unfamiliar with R, there remains the risk of misinterpretation.
+
+### **Further Steps for Improvement**
+
+1.  **More Data:** The first step for further improvement will naturally be more data. We firmly believe in our models but testing sets of older data could provide valuable insights into how trendiness criteria have changed over time. This could entail varying user engagement and/or different content strategy. Additional datasets could deepen the understanding of trendiness by revealing larger trends which our singular dataset may not be able to capture.
+2.  **YouTube Shorts:** Another area of improvement would be to look at YouTube Shorts—their product which competes with TikTok and Instagram Reels. Short-form video caters to a different customers than full-length YouTube videos and thus have different strategies. Notably, the Shorts are—as the name implies—short. This means the videos need to be engaging the user extremely frequently—about every 3 seconds. A separate model to uncover Shorts trendiness would directly support marketing professionals’ expansions into the short-form video, unlocking access new customers and improved brand awareness.
 
 ## References
 
