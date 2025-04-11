@@ -274,34 +274,34 @@ print(unique_values_table)
 
 Okay, there are no columns with a singular unique value so let's continue.
 
-### 4. Export the Cleaned Data
+### 4. Export the Cleaned Data (Optional)
 
-Finally, we will export the cleaned data. So, that we can use a different notebook to perform the EDA. For presenting our analysis we have included this EDA notebook by embedding it into the full report. This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
+This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
 
 ```{r udf_export_dataset}
-export_data <- function(df, input_filepath){   
-  output_filepath <- sub(".csv","_cleaned.csv",input_filepath)   
-  write.csv(df, output_filepath, row.names = FALSE) 
+#export_data <- function(df, input_filepath){   
+#  output_filepath <- sub(".csv","_cleaned.csv",input_filepath)   
+#  write.csv(df, output_filepath, row.names = FALSE) 
 }
 ```
 
 ```{r}
-export_data(yt_df, data_filepath)
+#export_data(yt_df, data_filepath)
 ```
-
-That brings us to the end of the data cleaning part. Any more cleaning, clustering, merging or separation of the dataset(s) will happen in the next step(s).
 
 ```{r cleaning_unused_memory, include=FALSE}
 # This block removes all the elements from your environment and cleans up unused memory from the session
 # remove(list = ls())
-gc()
+#gc()
 ```
 
 ------------------------------------------------------------------------
 
 ## Exploratory Data Analysis
 
-In this step of the analysis the aim is to gain a deeper understanding of the data so that we can identify obvious errors, missing data, recognize potential patterns, as well as spot outliers.1. Univariate Analysis
+In this step of the analysis, the aim is to gain a deeper understanding of the data so we can identify obvious errors, missing data, recognize potential patterns, as well as spot outliers.
+
+## 1. Univariate Analysis
 
 #### Import Dataset (Optional)
 
@@ -313,11 +313,11 @@ In this step of the analysis the aim is to gain a deeper understanding of the da
 # yt_df <- read.csv(data_filepath)
 ```
 
-The first step in EDA is "`Univariate analysis`" - in a nutshell - meaning that we will analyse each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
+The first step in EDA is "`Univariate analysis`" which - in a nutshell - means we will analyze each variable separately. This gives an in-depth understanding of all the variables and is an important step. To put it in car terms: ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
 
 #### 1.1. Numerical Columns
 
-Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column and if its the intended type (eg `int` or `chr`) for that function, it will analyse that column and print the respective results. The `udf` will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values` for the `numerical columns` in the dataset.
+Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column, and if its the intended type (e.g. `int` or `chr`) for that function, it will analyze that column and print the respective results. The `udf` will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values` for the `numerical columns` in the dataset.
 
 ```{r udf_analyse_numerical_cols}
 analyze_numerical <- function(df) {
@@ -346,26 +346,26 @@ analyze_numerical <- function(df) {
 }
 ```
 
-Please be patient when running the below code chunk it will take a few minutes, but in the mean time think of all the nice visuals that it will give you in return!
+Please be patient when running the below code chunk—it will take a few minutes. In the meantime, think of all the great visuals that it will give you!
 
 ```{r}
 analyze_numerical(yt_df)
 ```
 
-**Abnormalities numerical variables** 
+**Abnormalities Numerical Variables** 
 
-*Skewness:* A prominent abnormality across several variables (`daily_rank`, `view_count`, `like_count`, and `comment_count`) is the strong right-skew in their distributions. This suggests that for these variables, most of the values are concentrated at the lower end, with a few very large values pulling the mean to the right. This is common in marketing campaign data or data related to popularity or engagement. As mentioned before, these variables are typical KPIs used by industry professionals.
+*Skewness:* A prominent abnormality across several variables (`daily_rank`, `view_count`, `like_count`, and `comment_count`) is the strong right-skew in their distributions. This suggests that for these variables, most of the values are concentrated at the lower end with a few very large values pulling the mean to the right. This is common in marketing campaign data or data related to popularity/engagement if content is a hit. As mentioned before, these variables are typical KPIs used by industry professionals.
 
 *Outliers:* The boxplots reveal the presence of outliers in `daily_movement`, `weekly_movement`, `view_count`, `like_count`, and `comment_count`. These outliers indicate extreme values that deviate significantly from the rest of the data. In the context of view, like, and comment counts, outliers might represent exceptionally popular or trendy content. 
 
 *Central Tendency and Spread:* For `daily_movement` and `weekly_movement`, the distributions are centered around zero, suggesting that the movements are balanced around no net change. The spread, as indicated by the boxplots and density plots, shows the typical magnitude of these movements. 
 
-**Insights numerical variables** 
+**Insights Numerical Variables** 
 
 1.  The right-skew in `view_count`, `like_count`, and `comment_count` suggests that a small proportion of content attracts a disproportionately large share of views, likes, and comments. This insight is crucial for content creators or platform managers, as it highlights the importance of identifying and potentially promoting content with the potential to become highly popular. 
 2.  The distributions of `daily_movement` and `weekly_movement` being centered around zero might imply a certain level of stability in the underlying system, with fluctuations occurring around a central equilibrium. However, the outliers in these variables could indicate instances of significant shifts. These might be of most interest for our business problem to classify trendy videos.
 
-For an more detailed overview of analysis per numerical variable and corresponding boxplot, see the table below.
+For an more detailed overview of analysis per numerical variable and corresponding boxplot, please see the table below.
 
 | Variable | Distribution | Range and Outliers | Density |
 |----|----|----|----|
