@@ -568,6 +568,8 @@ ggplot(df_filtered, aes(x = daily_movement, y = view_count/10^6, color = country
   theme_minimal()
 ```
 
+There are clear outliers present within each country, while the majority of videos are densely clustered around lower view counts and moderate daily movement. Additionally, the spread of points varies across countries, indicating differing engagement patterns and distribution of video performance.
+
 Next, we take a broader view by identifying the top 10% of countrie**s** based on three different performance metrics:
 
 1.   Average view count
@@ -634,9 +636,9 @@ grid.newpage()
 grid.draw(venn.plot)
 ```
 
-It shows that out of the 11 countries in each list, 6 countries appear in both the top 10% based on average view count and average like count. However, it is noteworthy that no single country appears in the top 10% across all three performance metrics: average views, average likes, and total video count. This suggests that different countries excel in different aspects of video trendiness.
+It shows that out of the 11 countries in each list, 6 countries appear in both the top 10% based on average view count and average like count. However, it is interesting that no single country appears in the top 10% across all three performance metrics: average views, average likes, and total video count. This suggests that different countries excel in different aspects of video trendiness.
 
-While the geographical analysis provided valuable insights—highlighting regional variations in daily rank and engagement patterns—we have decided not to include the `country` column in the remainder of the report. This decision is based on the assumption that our target audience, industry professionals, are aiming for global reach. Therefore, their primary interest lies in identifying the overall drivers of trendiness on YouTube, regardless of geographical location. From this point forward, the focus will shift to universal predictors of video success across all countries.
+While the geographical analysis provided valuable insights—highlighting regional variations in daily rank and engagement patterns—we have decided not to include the `country` column in the remainder of the report. This decision is based on the assumption that our target audience, marketing industry professionals, are aiming for global reach. Therefore, their primary interest lies in identifying the overall drivers of trendiness on YouTube, regardless of geographical location. From this point forward, the focus will shift to universal predictors of video success across all countries.
 
 ```{r dropping the country column}
 yt_df <- yt_df %>% select(-country)
