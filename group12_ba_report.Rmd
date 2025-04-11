@@ -394,7 +394,7 @@ analyze_categorical(yt_df)
 For an more detailed overview of analysis per numerical variable and corresponding boxplot, see the table below.
 
 | Variable | Distribution | Range and Outliers | Density |
-|----------------|----------------------|-------------------|-----------------|
+|-----------------|--------------------|------------------|-----------------|
 | `daily_rank` | The histogram of `daily_rank` shows a right-skewed distribution, indicating that most of the values are concentrated towards the lower end of the rank, with fewer occurrences of higher rank values. | The boxplot confirms the right-skewness and suggests a limited range of `daily_rank` values, mostly between 0 and 25. There don't appear to be significant outliers. | The density plot illustrates the skew more clearly, with a peak at the lower end and a tail extending to the right. |
 | `daily_movement`  | The histogram of `daily_movement` shows a distribution centered around zero, with frequencies decreasing as you move away from zero in both positive and negative directions. | The boxplot shows the median `daily_movement` is around zero, with the interquartile range (IQR) indicating the spread of the central 50% of the data. The whiskers suggest a range from approximately -40 to +40, with a few potential outliers beyond these ranges. | The density plot shows a peak around zero, confirming the distribution's center, and tails off symmetrically, suggesting a distribution that might be close to normal but possibly with heavier tails. |
 | `weekly_movement` | Similar to `daily_movement`, the histogram of `weekly_movement` is centered around zero, with a decrease in frequency as you move towards the extremes. | The boxplot indicates the median `weekly_movement` is approximately zero. The IQR represents the spread of the central 50%. The whiskers extend to around -40 and +40, with some outliers beyond these points. | The density plot shows a peak at zero and a symmetric decrease on both sides, resembling a normal distribution curve, but again, the tails might be heavier. |
@@ -869,62 +869,129 @@ First, we chose RandomForest. This ensemble method is known for its good perform
 
 Additionally, we selected Logistic Regression. It is a widely used baseline for binary classification, it offers good interpretability. Logistic regression is similar to linear regression but instead it is used with a categorical response (trendy or not trendy).
 
-### Import Dataset (Optional)
+### 1. RandomForest [DO NOT RUN AFTER THIS CELL]
+
+#### 1.1 Prepping the data
+
+In this section, we will be prepping the dataset even more, to be fed into the model. Like defining the `feature` and `target` variables, and `train-validation` split.
 
 ```{r}
-# Update this variable with the your own filepath
-# data_filepath <- "<update here>/trending_yt_videos_113_countries_model_training.csv"
+# Defining the feature and target variables 
+features <- c("title_score","video_tag_score","engagement_score","comment_score","video_age") 
+target <- "trending"
 
-#Import dataset
-# yt_df <- read.csv(data_filepath)
-
+# Convert to a factor with valid labels
+yt_df[[target]] <- factor(yt_df[[target]], 
+                          levels = c(0, 1), 
+                          labels = c("No", "Yes")
+                          )
 ```
 
-### 1. RandomForest
+```{r warning=FALSE}
+# spliting the data into train and validation sets 
+split <- initial_split(yt_df, prop = 0.9, strata = target)
+train <- training(split)
+validation <- testing(split)  
 
-### **2. Boosting**
+# prepping the data to be fed into the model 
+X_train <- train[, features]
+y_train <- train[, target]
 
-```{r model_boosting}
-# Set parameters
-iterations <- 15 # how many trees do you want to estimate?
-randomize <- TRUE # use a randomly selected set of predictor variables?
-min_randomize <- 2 # if randomize is set to TRUE, how many predictor variables do you want to sample (min = 2, max = 5)
-proportion <- 0.7 # train test split
-
-# Split dataframe in training and testing set
-
-
-
-split <- rsample::initial_split(yt_df, prop = proportion)
-training <- training(split)
-testing <- testing(split)
-
-target_var <- "daily_rank"  # Change this to match predictor variable later on!
-
-# Boosting with C5.0
-if (randomize) {
-    predictors <- setdiff(names(training), target_var)  # Exclude target variable
-    sampled_predictors <- sample(predictors, sample(min_randomize:length(predictors), 1))
-    
-    formula <- as.formula(paste(target_var, "~", paste(sampled_predictors, collapse = " + ")))
-    model <- C5.0(formula, data = training, trials = iterations)  # Boosting with trials
-} else {
-    model <- C5.0(as.formula(paste(target_var, "~ .")), data = training, trials = iterations)
-}
-
-# Make predictions
-predictions <- predict(model, testing)
-
-# Add predictions to the testing set
-testing$Predicted <- predictions
-
-# Check model performance
-conf_matrix <- table(testing[[target_var]], testing$Predicted)
-accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
-
-# Print accuracy
-print(paste("Model Accuracy:", round(accuracy * 100, 2), "%"))
+X_val <- validation[, features]
+y_val <- validation[, target]
 ```
+
+#### 1.2. Model Training
+
+Now, that we have the data in the proper required format, we can start defining the model and train it. First, we will define the `cross-validation` parameters and then proceed with `hyperparameter tuning` and finally training the `random forest` model.
+
+```{r}
+# Cross validation 
+train_control <- trainControl(method="repeatedcv",
+                              number=5,
+                              repeats=3,
+                              savePredictions = "all",    
+                              classProbs = TRUE,
+                              summaryFunction = twoClassSummary)  
+# hyperparameter tuning 
+# tune_grid <- expand.grid(
+#  mtry = c(2, 3, 4, 5),
+#  splitrule = c("gini", "extratrees"),
+#  min.node.size = c(1, 3, 5),
+#  num.trees = c(100, 150, 200, 250, 300, 500, 750, 1000)
+#  )
+
+# random forest model 
+formula <- as.formula(paste(target, "~", paste(features, collapse = "+")))
+rf_model <- train(
+  formula,
+  data = train,
+  method = "rf",
+  metric = "ROC",
+  trControl = train_control,
+  tuneLength = 10,
+  importance = TRUE
+  )
+```
+
+#### 1.3. Exporting the model
+
+Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
+
+```{r}
+# full model details 
+final_rf <- rf_model$finalModel
+print(final_rf)
+
+# saving the model for future use 
+save(rf_model, file = "rf_model.RData")
+```
+
+Now, let's check the importance of each feature that we have sent as input to the model in predicting each of the target class.
+
+-   **No / Yes**: This column might represent whether the feature was used in the model (or some version of feature selection).
+
+-   **MeanDecreaseAccuracy**: This measures how much **model accuracy** decreases when the feature is **excluded** from the model. The higher the value, the more important the feature is to the model's performance. If you exclude a feature with a high MeanDecreaseAccuracy, the accuracy of the model will drop significantly
+
+-   **MeanDecreaseGini**: This measures how much the **Gini impurity** (a measure of node purity) is reduced when the feature is used to split the trees. Higher values indicate more important features, as they lead to splits that significantly reduce impurity in the decision trees. Features with high MeanDecreaseGini contribute more to the model's ability to separate classes.
+
+```{r}
+# to get feature importance 
+print(final_rf$importance)
+
+# to get the model parameters 
+# print(rf_model$control)
+
+# plot the feature importance for better visualization 
+importance_df <- data.frame(Feature = rownames(final_rf$importance),
+                            Importance = final_rf$importance[, 2])  
+
+ggplot(importance_df,
+       aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Feature Importance in RF Model", x = "Feature", y = "Importance")
+```
+
+Here, we can see that `title_score`, `video_tag_score` are relatively less important than the `engagement_score`, `video_age` and `comment_score` in predicting the video's trendiness.
+
+#### 1.4. Performance Evaluation
+
+We are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
+
+```{r}
+# Predict on your validation set
+pred_probs <- predict(final_rf, newdata = X_val, type = "prob")
+pred_class <- predict(final_rf, newdata = X_val)
+
+# Confusion matrix 
+confusionMatrix(pred_class, y_val)
+```
+
+### **2. Logistic Regression**
+
+We will be repeating the `steps 1.2 to 1.4` for Logistic Regression.
 
 ## References
 
