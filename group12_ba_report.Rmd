@@ -282,7 +282,7 @@ This function will export the cleaned data into a `.csv` file into the same path
 #export_data <- function(df, input_filepath){   
 #  output_filepath <- sub(".csv","_cleaned.csv",input_filepath)   
 #  write.csv(df, output_filepath, row.names = FALSE) 
-}
+# }
 ```
 
 ```{r}
@@ -368,7 +368,7 @@ analyze_numerical(yt_df)
 For an more detailed overview of analysis per numerical variable and corresponding boxplot, please see the table below.
 
 | Variable | Distribution | Range and Outliers | Density |
-|----|----|----|----|
+|------------------|------------------|------------------|------------------|
 | `daily_rank` | The histogram of `daily_rank` shows a right-skewed distribution, indicating that most of the values are concentrated towards the lower end of the rank, with fewer occurrences of higher rank values. | The boxplot confirms the right-skewness and suggests a limited range of `daily_rank` values, mostly between 0 and 25. There don't appear to be significant outliers. | The density plot illustrates the skew more clearly, with a peak at the lower end and a tail extending to the right. |
 | `daily_movement`  | The histogram of `daily_movement` shows a distribution centered around zero, with frequencies decreasing as you move away from zero in both positive and negative directions. | The boxplot shows the median `daily_movement` is around zero, with the interquartile range (IQR) indicating the spread of the central 50% of the data. The whiskers suggest a range from approximately -40 to +40, with a few potential outliers beyond these ranges. | The density plot shows a peak around zero, confirming the distribution's center, and tails off symmetrically, suggesting a distribution that might be close to normal but possibly with heavier tails. |
 | `weekly_movement` | Similar to `daily_movement`, the histogram of `weekly_movement` is centered around zero, with a decrease in frequency as you move towards the extremes. | The boxplot indicates the median `weekly_movement` is approximately zero. The IQR represents the spread of the central 50%. The whiskers extend to around -40 and +40, with some outliers beyond these points. | The density plot shows a peak at zero and a symmetric decrease on both sides, resembling a normal distribution curve, but again, the tails might be heavier. |
@@ -481,7 +481,7 @@ gc()
 
 There are also a few columns that seem to be irrelevant in helping our model predict trendiness of a video. These are: `channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language.`
 
-The variable `language` had alot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we decided not including this variable as it did not seem as important for predicting trendiness.
+The variable `language` had a lot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we decided not including this variable as it did not seem as important for predicting trendiness.
 
 ### 2. Bivariate Analysis \<Content TB Added\>
 
@@ -702,6 +702,7 @@ cat("\n=========================================================================
 ```
 
 Optional: sort variable loadings by absolute value for each PC. This will generate a large table but does make the loading distribution easier to scan through when looking for the most influential variables in each PC.
+
 ```{r organized pca loadings}
 loadings_trendy <- results_trendy$rotation
 
@@ -955,7 +956,7 @@ rf_model <- train(
   )
 ```
 
-#### 1.3. Exporting the model
+#### 1.3. Exporting the model (Optional)
 
 Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
 
@@ -1008,7 +1009,11 @@ pred_class <- predict(final_rf, newdata = X_val)
 confusionMatrix(pred_class, y_val)
 ```
 
-\<Summary TB Added\>
+As we can see from the confusion matrix, the Random Forest model has pretty good `accuracy` `(~ 99.48%)` - *sounds like an overfitted model* - But this is okay, since the count of positive class is very low compared to the negative class. We have used the cross-validation and hyperparameter tuning while training the model - this should suppress the overfitting problem. Moving on to the other scores, we have got a pretty good `precision (63.82%)` - meaning that our model is correctly classifying the trending videos as trending. This is something which we really want. The `Recall` and `F1 scores (~10.05% & ~17.26%)` are in the lower range. This could be improved using weights for the classes.
+
+<!--# Using class weights can go in our further steps/limitations section -->
+
+<!--# Also, when we re-run we might have to re-calculate these scores -->
 
 ### **2. Logistic Regression**
 
@@ -1052,7 +1057,7 @@ importance_df %>%
   theme_minimal()
 ```
 
-Same as `Random Forest`, we can see that `video_tag_score` isrthe least important variable than the others in predicting the video's trendiness.
+Same as `Random Forest`, we can see that `video_tag_score` is the least important variable than the others in predicting the video's trendiness.
 
 ```{r logit_model_preds}
 # Predict on your validation set
@@ -1062,7 +1067,9 @@ pred_class <- predict(logit_model, newdata = X_val)
 confusionMatrix(pred_class, y_val, positive="Yes")
 ```
 
-Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
+<!--# Explanation of the scores needs to be added -->
+
+Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (Sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
 
 So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title. Doing this will keep the users engaged and it will make your video to come out on top of the trending list.
 
