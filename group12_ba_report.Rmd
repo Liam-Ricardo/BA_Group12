@@ -376,13 +376,11 @@ For an more detailed overview of analysis per numerical variable and correspondi
 | `like_count` | The histogram of `like_count` is also right-skewed, similar to `view_count`, with most counts concentrated at the lower end and fewer occurrences of very high `like_count` values. | The boxplot shows the concentration of data points at the lower end and the presence of many outliers on the higher end. | The density plot highlights the skew, with a sharp peak close to zero and a tail extending towards larger `like_count` values. |
 | `comment_count` | The histogram of `comment_count` exhibits a strong right-skew, indicating that most observations have lower comment counts, with only a few having very high counts. | The boxplot illustrates that most values are near zero, with a substantial number of outliers on the higher end. | The density plot shows a high peak near zero and a long tail extending towards the higher `comment_count` values, demonstrating the skew. |
 
-: Table overview of insights from boxplots numerical variables
-
 #### 1.2. Non-Numeric Columns
 
--   For `text data` the function will calculate most commonly appearing words in the `title and video_tags` columns in the `top 10%` of the videos.
+-   For `text data`, the function will calculate the most commonly appearing words in the `title` and `video_tags` columns in the `top 10%` of the videos.
 
--   Top 10% - based on `daily_rank, daily_movement and weekly_movement.` And merging the resultant vectors into one, while removing the common words between the 2 techniques and correcting the spelling using `hunspell` library to ensure we have the words that are meaningful.
+-   Top 10% - based on `daily_rank`, `daily_movement` and `weekly_movement`. We merge the resultant vectors into one while removing the common words between the 2 techniques. We also correct the spelling using the `hunspell` library to ensure we have words which are meaningful.
 
 -   Further in the analysis, we can use this result as a feature to train the model - to be one of the factors that determine the trendliness of the video.
 
@@ -475,17 +473,15 @@ print(paste("Final Title:", length(final_title_words), toString(final_title_word
 print(paste("Final Tags:", length(final_tag_words), toString(final_tag_words)))
 ```
 
-Now we have 2 lists of words that we can use to introduce a synthetic column that in turn can be used as a feature to train the model.
+Now, we have 2 lists of words that we can use to introduce a synthetic column that, in turn, can be used as a feature to train the model.
 
 ```{r cleaning_unused_memory, include=FALSE}
 gc()
 ```
 
-There are also a few columns that seem not as relevant to help our model predict trendiness of a video. These are: `channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language.`
+There are also a few columns that seem to be irrelevant in helping our model predict trendiness of a video. These are: `channel_name`, `country`, `description`, `thumbnail_url`, `kind`, `video_id`, `channel_id`, `language.`
 
 The variable `language` had alot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are 2280084 values "missing" which are instances in which the language of the video was not recognized. This is a lot so we decided not including this variable as it did not seem as important for predicting trendiness.
-
-<!--# elaborate! -->
 
 ### 2. Bivariate Analysis \<Content TB Added\>
 
