@@ -1,0 +1,184 @@
+```{r}
+# Load required libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(rsample)
+```
+
+```{r}
+set.seed(123)
+youtube_data <- read.csv("C:/Users/keert/OneDrive/Desktop/Business Analytics - Tutorials/trending_yt_videos_113_countries_model_training.csv")
+```
+
+```{r}
+#Define engagement score and trendiness
+#youtube_data$engagement_score <- youtube_data$like_count / youtube_data$view_count
+#youtube_data$trendiness <- ifelse(youtube_data$engagement_score > 0.05 & youtube_data$daily_movement > 0, 1, 0)
+#youtube_data$trendiness <- as.factor(youtube_data$trendiness)
+```
+
+```{r}
+# Create target variable using weighted criteria
+
+view_threshold <- quantile(youtube_data$view_count, 0.75)
+
+youtube_data <- youtube_data %>%
+  mutate(
+    daily_rank_met = as.integer(daily_rank <= 10),
+    like_ratio_met = as.integer((like_count / view_count) >= 0.05),
+    view_count_met = as.integer(view_count >= view_threshold),
+    weekly_movement_met = as.integer(weekly_movement >= 0),
+
+    # Calculate weighted score (scale to 0-100)
+    weighted_score = (daily_rank_met * 30) + 
+                     (like_ratio_met * 25) + 
+                     (view_count_met * 25) + 
+                     (weekly_movement_met * 20),
+
+    # Create binary target variable "trending" (0 or 1)
+    trending = as.factor(ifelse(weighted_score >= 80, 1, 0))
+  ) %>%
+  select(-daily_rank_met, -like_ratio_met, -view_count_met, -weekly_movement_met)
+
+# Handle missing values for the relevant columns
+youtube_data <- youtube_data %>%
+  filter(complete.cases(title_score, video_tag_score, engagement_score, comment_score, video_age))
+
+# Select relevant features
+features <- c("title_score", "video_tag_score", "engagement_score", "comment_score", "video_age")
+
+# Remove rows with NA in the selected features and target variable
+youtube_data <- na.omit(youtube_data[, c("trending", features)])
+```
+
+
+
+```{r}
+# Check distribution of the target variable "trending"
+table(youtube_data$trending)
+
+# Select relevant features for modeling
+features <- c("title_score", "video_tag_score", "engagement_score", 
+              "comment_score", "video_age")
+
+# Handle missing values by removing rows with NA values
+youtube_data <- na.omit(youtube_data)
+
+# Check for missing values in the target variable and features
+colSums(is.na(youtube_data[, c("trending", features)]))
+```
+
+```{r}
+
+set.seed(123)
+
+# Split into train (70%) and temp (30%) based on the target variable "trending"
+split <- initial_split(youtube_data, prop = 0.7, strata = "trending")  # Change "trendiness" to "trending"
+train_data <- training(split)
+temp <- testing(split)
+
+# Split temp into validation (66%) and test (34%) based on the target variable "trending"
+split_val_test <- initial_split(temp, prop = 0.66, strata = "trending")  # Change "trendiness" to "trending"
+val_data <- training(split_val_test)
+test_data <- testing(split_val_test)
+```
+
+
+```{r}
+sapply(list(train_data, val_data, test_data), 
+       function(x) sum(is.na(x$trending))) 
+```
+
+
+```{r}
+# Verify proportions
+cat("Original data proportions:\n")
+prop.table(table(youtube_data$trending))
+
+cat("\nTrain data proportions:\n")
+prop.table(table(train_data$trending))
+
+cat("\nValidation data proportions:\n")
+prop.table(table(val_data$trending))
+
+cat("\nTest data proportions:\n")
+prop.table(table(test_data$trending))
+
+```
+
+```{r}
+# Prepare data for modeling
+X_train <- train_data[, features]
+y_train <- train_data$trending
+
+X_val <- val_data[, features]
+y_val <- val_data$trending
+
+X_test <- test_data[, features]
+y_test <- test_data$trending
+
+```
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10, savePredictions = "all")
+```
+
+
+```{r}
+# Train Random Forest Model
+set.seed(123)
+#rf_model <- randomForest(trending ~ title_score + video_tag_score + engagement_score + 
+                         #comment_score + video_age,
+                         #data = train_data, 
+                         #ntree = 100,
+                         #importance = TRUE)
+# Train Random Forest Model with Cross-Validation
+rf_model_cv <- train(
+  trending ~ title_score + video_tag_score + engagement_score + 
+    comment_score + video_age,  # New set of features
+  data = train_data, 
+  method = "rf",  # Random forest model
+  trControl = train_control,  # Apply cross-validation
+  ntree = 100,  # Number of trees in the random forest
+  importance = TRUE  # Include feature importance
+)
+
+```
+
+```{r}
+save(rf_model_cv, file = "rf_model_cv.RData")
+```
+
+```{r}
+# Print model summary
+print(rf_model_cv)
+```
+
+```{r}
+# Evaluate on validation set
+val_preds <- predict(rf_model_cv, X_val)
+confusionMatrix(val_preds, y_val)
+```
+
+```{r}
+# Final evaluation on test set
+test_preds <- predict(rf_model_cv, X_test)
+confusionMatrix(test_preds, y_test)
+
+```
+
+```{r}
+#to get the model parameters
+rf_model_cv$control
+```
+
+```{r}
+final_rf <- rf_model_cv$finalModel
+importance(final_rf)
+```
+
+```{r}
+varImpPlot(final_rf)
+```
+
