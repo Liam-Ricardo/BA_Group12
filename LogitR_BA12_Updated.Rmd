@@ -1,0 +1,155 @@
+---
+title: "BA_12_LogitR"
+output: html_document
+date: "2025-03-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+destination_path = "D:/Netherlands/TU DELFT/Q3 2024/Business Analytics/R/trending_yt_videos_113_countries_model_training.csv"
+
+df <- read.csv(destination_path)
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Calculate criteria thresholds
+view_threshold <- quantile(df$view_count, 0.75, na.rm = TRUE)
+
+# Create target variable using weighted criteria
+df <- df %>%
+  mutate(
+    daily_rank_met = as.integer(daily_rank <= 10),
+    like_ratio_met = as.integer((like_count / view_count) >= 0.05),
+    view_count_met = as.integer(view_count >= view_threshold),
+    weekly_movement_met = as.integer(weekly_movement >= 0),
+    weighted_score = (daily_rank_met * 30) + 
+                     (like_ratio_met * 25) + 
+                     (view_count_met * 25) + 
+                     (weekly_movement_met * 20),
+    is_trending = as.factor(ifelse(weighted_score >= 80, 1, 0))
+  ) %>%
+  select(-daily_rank_met, -like_ratio_met, -view_count_met, -weekly_movement_met)
+
+# Handle missing values
+df <- df %>% filter(complete.cases(view_count, like_count, comment_count, daily_rank))
+
+# Split data into train (70%), validation (20%), test (10%)
+set.seed(123)
+n <- nrow(df)
+train_indices <- sample(seq_len(n), size = 0.7 * n)
+remaining_indices <- setdiff(seq_len(n), train_indices)
+val_indices <- sample(remaining_indices, size = 0.6667 * length(remaining_indices)) # 20% from total
+test_indices <- setdiff(remaining_indices, val_indices) # Remaining 10%
+
+# Verify split proportions
+cat("Train size:", length(train_indices), "\n")
+cat("Validation size:", length(val_indices), "\n")
+cat("Test size:", length(test_indices), "\n")
+
+# Create datasets
+train_data <- df[train_indices, ]
+val_data <- df[val_indices, ]
+test_data <- df[test_indices, ]
+
+# Train logistic regression model
+logit_model <- glm(is_trending ~ daily_rank + view_count + like_count + 
+                   comment_count + daily_movement + weekly_movement,
+                   data = train_data,
+                   family = "binomial")
+
+# Model summary
+summary(logit_model)
+
+# Define a function to evaluate model predictions
+evaluate_model <- function(model, data, dataset_name = "Validation") {
+  predictions <- predict(model, newdata = data, type = "response")
+  predicted_classes <- factor(ifelse(predictions > 0.5, 1, 0), levels = c(0, 1))
+  actual_classes <- data$is_trending
+  
+  conf_matrix <- table(Predicted = predicted_classes, Actual = actual_classes)
+  print(paste0("\nConfusion Matrix (", dataset_name, " Set):"))
+  print(conf_matrix)
+  
+  accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+  precision <- conf_matrix["1", "1"] / sum(conf_matrix["1", ])
+  recall <- conf_matrix["1", "1"] / sum(conf_matrix[, "1"])
+  f1_score <- (2 * precision * recall) / (precision + recall)
+  
+  cat("\nEvaluation Metrics (", dataset_name, " Set):\n", sep = "")
+  cat("Accuracy:", round(accuracy, 4), "\n")
+  cat("Precision:", round(precision, 4), "\n")
+  cat("Recall:", round(recall, 4), "\n")
+  cat("F1 Score:", round(f1_score, 4), "\n")
+}
+
+# Evaluate on validation set
+evaluate_model(logit_model, val_data, dataset_name = "Validation")
+
+# Evaluate on test set
+evaluate_model(logit_model, test_data, dataset_name = "Test")
+
+# Feature importance plot
+feature_importance <- abs(coef(logit_model)[-1]) # Exclude intercept
+feature_df <- data.frame(Feature = names(feature_importance), Importance = feature_importance)
+
+ggplot(feature_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  ggtitle("Feature Importance in Trending Prediction") +
+  xlab("Feature") +
+  ylab("Importance")
+
+
+```
+
+
+
+
+```{r }
+# Function to predict trendiness of a new video
+predict_trendiness <- function(model, new_video) {
+  # Ensure new data has correct structure
+  new_video <- as.data.frame(new_video)
+  
+  # Predict probability of trendiness
+  predicted_prob <- predict(model, newdata = new_video, type = "response")
+  
+  # Convert to binary classification
+  predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
+  
+  # Return prediction result
+  return(list(Probability = predicted_prob, Trendiness = predicted_class))
+}
+
+
+# Example new video data
+new_video <- data.frame(
+  daily_rank = 5,
+  view_count = 100000,
+  like_count = 5000,
+  comment_count = 800,
+  daily_movement = 3,
+  weekly_movement = 10,
+  country = factor("US", levels = levels(df$country)),
+  primary_language = factor("English", levels = levels(df$primary_language))
+)
+
+# Predict trendiness
+prediction <- predict_trendiness(logit_model, new_video)
+print(prediction)
+
+```
+
