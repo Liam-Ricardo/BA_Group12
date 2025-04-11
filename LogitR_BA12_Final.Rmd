@@ -22,9 +22,23 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r}
+
+```
+
+
+
+
+```{r }
+
+```
+
+
+```{r }
 # Load necessary libraries
 library(dplyr)
 library(ggplot2)
+
+set.seed(123)
 
 # Calculate criteria thresholds
 view_threshold <- quantile(df$view_count, 0.75, na.rm = TRUE)
@@ -32,35 +46,40 @@ view_threshold <- quantile(df$view_count, 0.75, na.rm = TRUE)
 # Create target variable using weighted criteria
 df <- df %>%
   mutate(
-    #daily_rank_met = as.integer(daily_rank <= 10),
-    #like_ratio_met = as.integer((like_count / view_count) >= 0.05),
-    #view_count_met = as.integer(view_count >= view_threshold),
-    #weekly_movement_met = as.integer(weekly_movement >= 0),
     weighted_score = (title_score * 20) + 
                      (video_tag_score * 20) + 
                      (engagement_score * 20) + 
                      (comment_score * 20) +
                      (video_age * 20),
     trending = as.factor(ifelse(weighted_score >= 80, 1, 0))
-  ) %>%
-  select(-title, -daily_rank, -daily_movement, -weekly_movement, -snapshot_date, -view_count, -like_count, -comment_count, -video_tags, publish_date)
+  ) 
+ select(-title, -daily_rank, -daily_movement, -weekly_movement, -snapshot_date, -view_count, -like_count, -comment_count, -video_tags, publish_date)
 
-# Handle missing values
-#df <- df %>% filter(complete.cases(title_score, video_tag_score, engagement_score, comment_score, video_age))
+# Stratified Random Sampling using group_by() and slice_sample()
+df_split <- df %>%
+  group_by(trending) %>%  # Group by the target variable
+  slice_sample(prop = 0.9) %>%  # Sample 90% of each group
+  ungroup()  # Remove grouping after sampling
 
-# Split data into train (90%), validation (10%)
-set.seed(123)
-n <- nrow(df)
-train_indices <- sample(seq_len(n), size = 0.9 * n)
-val_indices <- setdiff(seq_len(n), train_indices)
+# Create the validation set by filtering out the sampled rows
+val_data <- df %>%
+  anti_join(df_split, by = c("title_score", "video_tag_score", "engagement_score", "comment_score", "video_age", "trending"))
+
+# Shuffle the training and validation data (optional but good practice)
+train_data <- df_split[sample(nrow(df_split)), ]
+val_data <- val_data[sample(nrow(val_data)), ]
 
 # Verify split proportions
-cat("Train size:", length(train_indices), "\n")
-cat("Validation size:", length(val_indices), "\n")
+message("Train size:", nrow(train_data))
+message("Validation size:", nrow(val_data))
 
-# Create datasets
-train_data <- df[train_indices, ]
-val_data <- df[val_indices, ]
+message("Train trending distribution:")
+train_trending_distribution <- table(train_data$trending)
+print(train_trending_distribution)
+
+message("Validation trending distribution:")
+val_trending_distribution <- table(val_data$trending)
+print(val_trending_distribution)
 
 # Train logistic regression model
 logit_model <- glm(trending ~ title_score + video_tag_score + engagement_score + comment_score + video_age,
@@ -70,34 +89,43 @@ logit_model <- glm(trending ~ title_score + video_tag_score + engagement_score +
 # Model summary
 summary(logit_model)
 
-# Define a function to evaluate model predictions
+# Define evaluation function
 evaluate_model <- function(model, data, dataset_name = "Validation") {
   predictions <- predict(model, newdata = data, type = "response")
+  
+  # Check predictions
+  if (length(predictions) != nrow(data)) {
+    stop("Mismatch in prediction length and data rows")
+  }
+  
   predicted_classes <- factor(ifelse(predictions > 0.5, 1, 0), levels = c(0, 1))
   actual_classes <- data$trending
   
+  # Make confusion matrix
   conf_matrix <- table(Predicted = predicted_classes, Actual = actual_classes)
-  print(paste0("\nConfusion Matrix (", dataset_name, " Set):"))
+  
+  # Always print it
+  message(paste0("\nConfusion Matrix (", dataset_name, " Set):"))
   print(conf_matrix)
   
-  accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
-  precision <- conf_matrix["1", "1"] / sum(conf_matrix["1", ])
-  recall <- conf_matrix["1", "1"] / sum(conf_matrix[, "1"])
-  f1_score <- (2 * precision * recall) / (precision + recall)
+  # Calculate evaluation metrics
+  total <- sum(conf_matrix)
+  accuracy <- if (total == 0) NA else sum(diag(conf_matrix)) / total
+  precision <- if (sum(conf_matrix["1", ]) == 0) NA else conf_matrix["1", "1"] / sum(conf_matrix["1", ])
+  recall <- if (sum(conf_matrix[, "1"]) == 0) NA else conf_matrix["1", "1"] / sum(conf_matrix[, "1"])
+  f1_score <- if (is.na(precision) || is.na(recall) || (precision + recall) == 0) NA else (2 * precision * recall) / (precision + recall)
   
-  cat("\nEvaluation Metrics (", dataset_name, " Set):\n", sep = "")
-  cat("Accuracy:", round(accuracy, 4), "\n")
-  cat("Precision:", round(precision, 4), "\n")
-  cat("Recall:", round(recall, 4), "\n")
-  cat("F1 Score:", round(f1_score, 4), "\n")
+  # Print metrics
+  message(paste("\nEvaluation Metrics (", dataset_name, " Set):", sep = ""))
+  message(paste("Accuracy :", round(accuracy, 4)))
+  message(paste("Precision:", round(precision, 4)))
+  message(paste("Recall   :", round(recall, 4)))
+  message(paste("F1 Score :", round(f1_score, 4)))
 }
 
-# Evaluate on training set
+# Evaluate on training and validation set
 evaluate_model(logit_model, train_data, dataset_name = "Training")
-
-# Evaluate on validation set
 evaluate_model(logit_model, val_data, dataset_name = "Validation")
-
 
 # Feature importance plot
 feature_importance <- abs(coef(logit_model)[-1]) # Exclude intercept
@@ -110,13 +138,13 @@ ggplot(feature_df, aes(x = reorder(Feature, Importance), y = Importance)) +
   xlab("Feature") +
   ylab("Importance")
 
+```
 
 ```
 
 
+```{r}
 
-
-```{r }
 
 ```
 
