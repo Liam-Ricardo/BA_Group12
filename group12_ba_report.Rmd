@@ -1003,7 +1003,7 @@ ggplot(importance_df,
 
 Here, we can see that `title_score`, `video_tag_score` are relatively less important than the `engagement_score`, `video_age` and `comment_score` in predicting the video's trendiness.
 
-Now we are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
+Now, we are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
 
 ```{r rf_model_preds}
 # Predict on your validation set
@@ -1013,7 +1013,7 @@ pred_class <- predict(final_rf, newdata = X_val)
 confusionMatrix(pred_class, y_val)
 ```
 
-As we can see from the confusion matrix, the Random Forest model has pretty good `accuracy` `(~ 99.48%)` - *sounds like an overfitted model* - But this is okay, since the count of positive class is very low compared to the negative class. We have used the cross-validation and hyperparameter tuning while training the model - this should suppress the overfitting problem. Moving on to the other scores, we have got a pretty good `precision (63.82%)` - meaning that our model is correctly classifying the trending videos as trending. This is something which we really want. The `Recall` and `F1 scores (~10.05% & ~17.26%)` are in the lower range. This could be improved using weights for the classes.
+As we can see from the confusion matrix, the Random Forest model has pretty high `accuracy` `(~ 99.48%)` - *sounds like an overfitted model* - But this is okay, since the count of positive class is very low compared to the negative class. We have used the cross-validation and hyperparameter tuning while training the model. This should suppress the overfitting problem. Moving on to the other scores, we have got a pretty good `precision (63.82%)` meaning that our model is correctly classifying the trending videos as trending. This is something which we really want. The `Recall` and `F1 scores (~10.05% & ~17.26%)` are in the lower range which could be improved using weights for the classes.
 
 <!--# Using class weights can go in our further steps/limitations section -->
 
@@ -1073,9 +1073,9 @@ confusionMatrix(pred_class, y_val, positive="Yes")
 
 <!--# Explanation of the scores needs to be added -->
 
-Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (Sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
+Based on accuracy, both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (sensitivity) for our use case (i.e. reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video).
 
-So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title. Doing this will keep the users engaged and it will make your video to come out on top of the trending list.
+Based on these conditions, we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (i.e. like-to-view count), `comment_score` (i.e. comment-to-view count), and `title_score` (i.e. the title with catchy words) can influence the video's trendiness. Other factors such as `video_age` and `video_tag_score` can influence it somewhat but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and use catchy words in the `title`. Doing so will keep the users engaged and it will make your video to come out on top of the trending list.
 
 ## Conclusion
 
