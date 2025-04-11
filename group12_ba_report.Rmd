@@ -51,6 +51,8 @@ library(randomForest)
 library(rsample)
 library(caret)
 library(tidyverse)
+library(countrycode)
+library(VennDiagram)
 
 set.seed(123)
 ```
@@ -63,7 +65,7 @@ This cell imports the raw data. Since the data is too large for `GitHub` we can 
 
 ```{r import_dataset}
 # Update this variable with the your own filepath
-data_filepath <-"./dataset/trending_yt_videos_113_countries.csv"
+data_filepath <-"C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
 
 #Import dataset
 yt_df <- read.csv(data_filepath)
@@ -174,7 +176,7 @@ clean_data <- function(df){
   # Remove duplicate rows   
   df <- df %>% distinct()      
   # Dropping unnecessary columns
-  df <- df %>% select(-c(channel_name, country, description, thumbnail_url, kind, video_id, channel_id, langauge))
+  df <- df %>% select(-c(channel_name, description, thumbnail_url, kind, video_id, channel_id, langauge))
   
   return(df) 
 }
@@ -486,6 +488,159 @@ The variable `language` had a lot of empty values, and different type of values 
 ### 2. Bivariate Analysis \<Content TB Added\>
 
 <!--# Shalakha, can you please update this? If I remember correctly, you had graphs related to understanding the relationship between age of the video and trendiness -->
+
+Let us take a look at the `country` column, as it may yield interesting geographical insights into the trendiness of a video. Initially, this column uses ISO2 country codes, which are not very readable. For clarity, we generate a new column that maps these codes to their full country names.
+
+```{r full country names}
+yt_df$full_country_name <- countrycode(
+  sourcevar = yt_df$country,
+  origin = "iso2c",
+  destination = "country.name",
+  warn = FALSE
+)
+
+unique_countries <- unique(yt_df$full_country_name)
+print(unique_countries[0:5])
+summary(unique_countries)
+```
+
+After creating this new `full_country_name` column, we observe that the dataset includes videos from 113 distinct countries. This diversity provides a good opportunity to analyze country-level differences in video trendiness.
+
+To begin, we group the dataset by country and count the number of videos per country to understand how frequently each appears in the data.
+
+```{r group the dataset per country}
+grouped_df <- yt_df%>% group_by(country)
+country_counts <- grouped_df%>% summarise(count = n())
+print(country_counts)
+summary(country_counts)
+#ungrouping if wanted
+#df_ungrouped <- grouped_df %>% ungroup()
+```
+
+This reveals a small but clear difference in video frequency across countries—. with a minimum of 24074 videos and a maximum of 24359. This distribution could reflect differences in regional usage of YouTube videos.
+
+To delve deeper, we calculate the median daily rank for each country. Since for now a lower daily rank indicates higher trendiness, this measure helps us identify which countries tend to produce trendier content. To maintain clarity and focus on meaningful insights, we narrow our analysis to the top 10% of countries with the lowest median daily rank.
+
+```{r plotting the data grouped by countries}
+# 1. Calculate the median daily_rank and total video count for each country
+country_summary <- yt_df %>%
+  group_by(country) %>%
+  summarise(
+    median_rank = median(daily_rank, na.rm = TRUE),
+    video_count = n()
+  ) %>%
+  arrange(median_rank)
+
+# 2. Determine the number of countries that represent the top 10%
+num_top_countries <- round(0.10 * nrow(country_summary))
+
+# 3. Select the top 10% countries based on lowest median daily_rank
+top_countries <- country_summary %>%
+  head(num_top_countries) %>%
+  pull(country)
+
+# 4. Filter the original dataframe to include only the top countries
+df_filtered <- yt_df %>%
+  filter(country %in% top_countries)
+
+# 5. Create a boxplot for each country
+ggplot(df_filtered, aes(x = reorder(country, daily_rank, FUN = median), y = daily_rank)) +
+  geom_boxplot() +
+  coord_flip() +
+  labs(title = "Distribution of Daily Rank for Top 10% Countries",
+       subtitle = "Countries ranked by lowest median daily rank",
+       x = "Country",
+       y = "Daily Rank") +
+  theme_minimal()
+```
+
+This boxplot visualization of the top 10% of countries confirms that daily_rank is calculated within each country, not globally. Given that the daily rank ranges from 0 to 50 within countries, it's intuitive that the median sits around 25. This supports the common industry understanding that YouTube trends are often localized, with algorithms tailoring recommendations based on the viewer's region.
+
+To further explore regional performance, we visualize how daily movement relates to view counts within the top-ranking countries.
+
+```{r plotting top 10% countries in relation to daily_rank}
+ggplot(df_filtered, aes(x = daily_movement, y = view_count/10^6, color = country)) +
+  geom_point() +
+  facet_wrap(~ country) +
+  labs(title = "Daily Rank vs View Count for Top 10% Countries",
+       x = "Daily Movement",
+       y = "View Count(Millions)") +
+  theme_minimal()
+```
+
+Next, we take a broader view by identifying the top 10% of countrie**s** based on three different performance metrics:
+
+1.   Average view count
+
+2.  Median like count
+
+3.  Total number of videos
+
+```{r}
+num_top_countries <- round(0.10 * n_distinct(yt_df$country))
+
+# 1. Top 10% countries by highest average view count
+top_avg_view_count <- yt_df %>%
+  group_by(country) %>%
+  summarise(avg_view_count = mean(view_count, na.rm = TRUE)) %>%
+  arrange(desc(avg_view_count)) %>%
+  slice_head(n = num_top_countries) %>%
+  pull(country)
+
+# 2. Top 10% countries by highest average total like count
+top_avg_like_count <- yt_df %>%
+  group_by(country) %>%
+  summarise(total_like_count = median(like_count, na.rm = TRUE)) %>%
+  arrange(desc(total_like_count)) %>%
+  slice_head(n = num_top_countries) %>%
+  pull(country)
+
+
+# 3. Top 10% countries by highest total video count
+top_video_count <- yt_df %>%
+  group_by(country) %>%
+  summarise(video_count = n()) %>%
+  arrange(desc(video_count)) %>%
+  slice_head(n = num_top_countries) %>%
+  pull(country)
+```
+
+These lists help us explore whether the same countries consistently dominate across multiple measures of success. For example, a country that appears in all three lists could be a strategic focus area for content promotion.
+
+To visualize the overlap between these three top-performing groups, we generate a Venn diagram.
+
+```{r VennDiagram 3 lists}
+list_avg_view_count <- top_avg_view_count
+list_avg_like_count <- top_avg_like_count
+list_video_count <- top_video_count
+
+venn.plot <- venn.diagram(
+  x = list(
+    "Avg View Count" = list_avg_view_count,
+    "Avg Like Count" = list_avg_like_count,
+    "Video Count" = list_video_count
+  ),
+  filename = NULL,  # Keep the plot in memory instead of saving to a file
+  fill = c("red", "blue", "green"),
+  alpha = 0.5,
+  cex = 1.5,
+  cat.cex = 1.5,
+  cat.pos = c(-20, 20, 180),
+  cat.dist = c(0.05, 0.05, 0.05),
+  main = "Overlap of Top 10% Countries Across Criteria"
+)
+
+grid.newpage()
+grid.draw(venn.plot)
+```
+
+It shows that out of the 11 countries in each list, 6 countries appear in both the top 10% based on average view count and average like count. However, it is noteworthy that no single country appears in the top 10% across all three performance metrics: average views, average likes, and total video count. This suggests that different countries excel in different aspects of video trendiness.
+
+While the geographical analysis provided valuable insights—highlighting regional variations in daily rank and engagement patterns—we have decided not to include the `country` column in the remainder of the report. This decision is based on the assumption that our target audience, industry professionals, are aiming for global reach. Therefore, their primary interest lies in identifying the overall drivers of trendiness on YouTube, regardless of geographical location. From this point forward, the focus will shift to universal predictors of video success across all countries.
+
+```{r dropping the country column}
+yt_df <- yt_df %>% select(-country)
+```
 
 ### 3. Outlier Identification
 
