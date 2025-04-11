@@ -47,6 +47,10 @@ library(gmodels)
 library(Hmisc)
 library(randomForest)
 library(rsample)
+library(caret)
+library(tidyverse)
+
+set.seed(123)
 ```
 
 Now that we have all the required libraries imported, let's dive into analyzing the dataset and train a ML model to classify the video as a Trending video or not. First let's start by importing the dataset and cleaning it.
@@ -57,7 +61,7 @@ This cell imports the raw data. Since the data is too large for `GitHub` we can 
 
 ```{r import_dataset}
 # Update this variable with the your own filepath
-data_filepath <-"C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
+data_filepath <-"./dataset/trending_yt_videos_113_countries.csv"
 
 #Import dataset
 yt_df <- read.csv(data_filepath)
@@ -283,37 +287,23 @@ gc()
 
 ## Exploratory Data Analysis
 
-In this step of the analysis the aim is to gain a deeper understanding of the data so that we can identify obvious errors, missing data, recognize potential patterns, as well as spot outliers.
-
-```{r import_cleaned_dataset}
-# Update this variable with the your own filepath
-# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_cleaned.csv"
-
-#Import dataset
-# yt_df <- read.csv(data_filepath)
-```
-
-### 1. Univariate Analysis
+In this step of the analysis the aim is to gain a deeper understanding of the data so that we can identify obvious errors, missing data, recognize potential patterns, as well as spot outliers.1. Univariate Analysis
 
 #### Import Dataset (Optional)
 
-```{r}
+```{r import_cleaned_dataset}
 # Update this variable with the your own filepath 
- data_filepath <- "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries_cleaned.csv"  
+# data_filepath <- "./dataset/trending_yt_videos_113_countries_cleaned.csv"
 
-# Import dataset 
- yt_df <- read.csv(data_filepath)
+#Import dataset 
+# yt_df <- read.csv(data_filepath)
 ```
 
 The first step in EDA is "`Univariate analysis`" - in a nutshell - meaning that we will analyse each variable separately. This helps us to have an in-depth understanding of all the variables. It is an important step because - to put it in terms of a car - ***without knowing what each screw and bolt does, you cannot possibly build a car or repair it.***
 
-#### 1.1. Numerical & Categorical Columns
+#### 1.1. Numerical Columns
 
-Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column and if its the intended type (eg `int` or `chr`) for that function, it will analyse that column and print the respective results.
-
--   For `numerical columns` the function will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values`.
-
--   For `categorical columns` the function will check for the `frequency counts` and plots a `bar graph`
+Let's start by defining some `function(s)` that will take a dataframe as input, check for the type of column and if its the intended type (eg `int` or `chr`) for that function, it will analyse that column and print the respective results. The `udf` will calculate the `mean, median, mode, skweness, kutosis, standard deviation,` and `quartile values` for the `numerical columns` in the dataset.
 
 ```{r udf_analyse_numerical_cols}
 analyze_numerical <- function(df) {
@@ -342,38 +332,11 @@ analyze_numerical <- function(df) {
 }
 ```
 
-```{r udf_analyse_cat_cols}
-analyze_categorical <- function(df) {
-  categorical_cols <- names(df)[sapply(df, is.character) | sapply(df, is.factor)]
-  
-  for (col in categorical_cols) {
-    cat("\nColumn Name: ", col, "\n")
-    print(table(df[[col]]))
-    
-    # Visualization
-    pic <- ggplot(df, aes(x = .data[[col]])) + 
-      geom_bar(fill = "blue", alpha = 0.5) +
-      ggtitle(paste("Bar Plot of", col)) +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    print(pic)
-    print("-------------------------------------------------------")
-  }
-}
-```
-
 Please be patient when running the below code chunk it will take a few minutes, but in the mean time think of all the nice visuals that it will give you in return!
 
 ```{r}
 analyze_numerical(yt_df)
 ```
-
-```{r}
-analyze_categorical(yt_df)
-```
-
-<!--# why does above function not work/prints every single non-numerical instance? -->
-
-<!--# why do some mention histograms and other boxplots? I see only boxplots as output from analyze_categorical()? And everything seems plotted 2x per variable?-->
 
 **Abnormalities numerical variables** 
 
@@ -386,15 +349,12 @@ analyze_categorical(yt_df)
 **Insights numerical variables** 
 
 1.  The right-skew in `view_count`, `like_count`, and `comment_count` suggests that a small proportion of content attracts a disproportionately large share of views, likes, and comments. This insight is crucial for content creators or platform managers, as it highlights the importance of identifying and potentially promoting content with the potential to become highly popular. 
-
-<!-- -->
-
 2.  The distributions of `daily_movement` and `weekly_movement` being centered around zero might imply a certain level of stability in the underlying system, with fluctuations occurring around a central equilibrium. However, the outliers in these variables could indicate instances of significant shifts. These might be of most interest for our business problem to classify trendy videos.
 
 For an more detailed overview of analysis per numerical variable and corresponding boxplot, see the table below.
 
 | Variable | Distribution | Range and Outliers | Density |
-|-----------------|--------------------|------------------|-----------------|
+|----|----|----|----|
 | `daily_rank` | The histogram of `daily_rank` shows a right-skewed distribution, indicating that most of the values are concentrated towards the lower end of the rank, with fewer occurrences of higher rank values. | The boxplot confirms the right-skewness and suggests a limited range of `daily_rank` values, mostly between 0 and 25. There don't appear to be significant outliers. | The density plot illustrates the skew more clearly, with a peak at the lower end and a tail extending to the right. |
 | `daily_movement`  | The histogram of `daily_movement` shows a distribution centered around zero, with frequencies decreasing as you move away from zero in both positive and negative directions. | The boxplot shows the median `daily_movement` is around zero, with the interquartile range (IQR) indicating the spread of the central 50% of the data. The whiskers suggest a range from approximately -40 to +40, with a few potential outliers beyond these ranges. | The density plot shows a peak around zero, confirming the distribution's center, and tails off symmetrically, suggesting a distribution that might be close to normal but possibly with heavier tails. |
 | `weekly_movement` | Similar to `daily_movement`, the histogram of `weekly_movement` is centered around zero, with a decrease in frequency as you move towards the extremes. | The boxplot indicates the median `weekly_movement` is approximately zero. The IQR represents the spread of the central 50%. The whiskers extend to around -40 and +40, with some outliers beyond these points. | The density plot shows a peak at zero and a symmetric decrease on both sides, resembling a normal distribution curve, but again, the tails might be heavier. |
@@ -760,9 +720,11 @@ Interpretations:
 
 ## Feature Engineering/Selection
 
+We have completed our EDA in the previous section and now we have understood the dataset completely. We can now create (or update the existing columns) features that will be fed as inputs to the model. There can be various methods of feature engineering like selecting the important columns or creating new columns by merging (or using any other logic) the existing columns.
+
 ### 1. Convert Text columns into Numerical columns
 
-Logic of `title_score` and `video_tags_score` columns -\> Take the value in the cell (say 1st cell of title (or video_tags) column - "*Highlights Real Madrid vs Barcelona 3-1...*") and run the words separately through the list of words in `final_title_words` (or `final_tag_words`) and increase the count by 1 every time the word in the cell matches a word in the list. Example: The title "*Highlights Real Madrid vs Barcelona 3-1..."* will get a score of **3.**
+First, we would start by converting the text columns (`title` and `video_tags`, in our case) into numerical columns, for better model predictability. We would be introducing the `scores` of the said columns using the following logic (`title_score` and `video_tags_score` columns) -\> Take the value in the cell (say 1st cell of title (or video_tags) column - "*Highlights Real Madrid vs Barcelona 3-1...*") and run the words separately through the list of words in `final_title_words` (or `final_tag_words`) and increase the count by 1 every time the word in the cell matches a word in the list. Example: The title "*Highlights Real Madrid vs Barcelona 3-1..."* will get a score of **3.**
 
 ```{r udf_calculate_text_score}
 calculate_title_score <- function(title, word_list) {
@@ -784,7 +746,7 @@ yt_df <- yt_df %>%
   mutate(video_tag_score = vapply(video_tags, calculate_title_score, FUN.VALUE = integer(1), word_list = final_tag_words))
 ```
 
-This functions have added a column with the intended purpose. Let's try to feed that into the model and see if its improving the performance.
+This functions have added a column with the intended purpose. We will be using the synthetic columns inplace of the original text columns while training the model.
 
 ```{r export_feature_engg}
 export_data <- function(df, input_filepath){   
@@ -799,15 +761,23 @@ export_data(yt_df, data_filepath)
 
 ```{r}
 # Update this variable with the your own filepath
-# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_feature_engg.csv"
+# data_filepath <- "./dataset/trending_yt_videos_113_countries_feature_engg.csv"
 
 #Import dataset
 # yt_df <- read.csv(data_filepath)
 ```
 
-Let's prep the data for that can be fed into the model.
+### 2. Creating other feature columns
 
-```{r}
+Let's prep the data for that can be fed into the model. We will be creating a few additional columns such as `engagement_score`, `comment_score`, `video_age`, and the target column itself - `trending`. The formula used for the columns are as follows:
+
+-   `engagement_score` = `like_count` / `view_count` *[Out of the total audience (people who view the video) how many people are liking the video?]*
+
+-   `comment_score` = `comment_count` / `view_count` *[Out of the total audience (people who view the video) how many people are liking the video?]*
+
+-   `video_age` = `snapshot_date` - `publish_date` *[Age of the video from the date it was uploaded to the date when this data was downloaded]*
+
+```{r feature_cols_creation}
 yt_df <- yt_df %>%
   mutate(
     engagement_score = ifelse(!is.na(view_count) & view_count > 0, 
@@ -818,7 +788,17 @@ yt_df <- yt_df %>%
   )
 ```
 
-```{r}
+To create the target variable (`trending`) - we start by calculating the `trend_score`. In simple words, the video that gets a `trend_score` of more than 80 (out of 100) will be considered as the positive class (`trending = 1`). The logic to calculate `trend_score` is as follows
+
+-   `rank_score` -\> based on `daily_rank` column
+
+-   `movement_score` -\> based on `daily_movement` column
+
+-   `trend_score` = { 0.5 \* (`rank_score` + `movement_score`) \* 100 } + { 0.5 \* (`engagement_score`) \* 100 }
+
+-   `trending` = 1 (when `trend_score` \> 80) or 0 (when `trend_score` \<= 80)
+
+```{r udf_calc_trend_score}
 calculate_trend_score <- function(df) {
   df <- df %>%
     mutate(
@@ -869,16 +849,29 @@ First, we chose RandomForest. This ensemble method is known for its good perform
 
 Additionally, we selected Logistic Regression. It is a widely used baseline for binary classification, it offers good interpretability. Logistic regression is similar to linear regression but instead it is used with a categorical response (trendy or not trendy).
 
-### 1. RandomForest [DO NOT RUN AFTER THIS CELL]
+### 1. RandomForest
+
+#### Import Dataset (Optional)
+
+```{r}
+# Update this variable with the your own filepath 
+# data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries_model_training.csv"
+
+#Import dataset
+yt_df <- read.csv(data_filepath)
+```
 
 #### 1.1 Prepping the data
 
 In this section, we will be prepping the dataset even more, to be fed into the model. Like defining the `feature` and `target` variables, and `train-validation` split.
 
-```{r}
+```{r feature_target_def}
 # Defining the feature and target variables 
 features <- c("title_score","video_tag_score","engagement_score","comment_score","video_age") 
 target <- "trending"
+
+# formula to be passed into the model(s)
+formula <- as.formula(paste(target, "~", paste(features, collapse = "+")))
 
 # Convert to a factor with valid labels
 yt_df[[target]] <- factor(yt_df[[target]], 
@@ -887,33 +880,40 @@ yt_df[[target]] <- factor(yt_df[[target]],
                           )
 ```
 
-```{r warning=FALSE}
+```{r train_val_split, warning=FALSE}
 # spliting the data into train and validation sets 
 split <- initial_split(yt_df, prop = 0.9, strata = target)
-train <- training(split)
-validation <- testing(split)  
+train_data <- training(split)
+val_data <- testing(split)  
 
 # prepping the data to be fed into the model 
-X_train <- train[, features]
-y_train <- train[, target]
+X_train <- train_data[, features]
+y_train <- train_data[, target]
 
-X_val <- validation[, features]
-y_val <- validation[, target]
+X_val <- val_data[, features]
+y_val <- val_data[, target]
+```
+
+First, we will define the `cross-validation` parameters and then proceed with `hyperparameter tuning`
+
+```{r cross_val_def}
+# cross validation
+train_control <- trainControl(method="repeatedcv",
+                              number=5,
+                              repeats=3,
+                              savePredictions = "final",    
+                              classProbs = TRUE,
+                              summaryFunction = twoClassSummary,
+                              sampling = "smote")
 ```
 
 #### 1.2. Model Training
 
-Now, that we have the data in the proper required format, we can start defining the model and train it. First, we will define the `cross-validation` parameters and then proceed with `hyperparameter tuning` and finally training the `random forest` model.
+Now, that we have the data in the proper required format, we can start defining the model and train it.
 
-```{r}
-# Cross validation 
-train_control <- trainControl(method="repeatedcv",
-                              number=5,
-                              repeats=3,
-                              savePredictions = "all",    
-                              classProbs = TRUE,
-                              summaryFunction = twoClassSummary)  
-# hyperparameter tuning 
+```{r rf_model}
+# (Optional) manual hyperparameter tuning 
+# add tuneGrid = tune_grid into rf_model to use this
 # tune_grid <- expand.grid(
 #  mtry = c(2, 3, 4, 5),
 #  splitrule = c("gini", "extratrees"),
@@ -921,15 +921,14 @@ train_control <- trainControl(method="repeatedcv",
 #  num.trees = c(100, 150, 200, 250, 300, 500, 750, 1000)
 #  )
 
-# random forest model 
-formula <- as.formula(paste(target, "~", paste(features, collapse = "+")))
+# random forest model
 rf_model <- train(
   formula,
-  data = train,
+  data = train_data,
   method = "rf",
   metric = "ROC",
   trControl = train_control,
-  tuneLength = 10,
+  tuneLength = 10, # automated hyperparameter tuning
   importance = TRUE
   )
 ```
@@ -938,13 +937,13 @@ rf_model <- train(
 
 Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
 
-```{r}
+```{r rf_model_params}
 # full model details 
 final_rf <- rf_model$finalModel
 print(final_rf)
 
 # saving the model for future use 
-save(rf_model, file = "rf_model.RData")
+# save(rf_model, file = "rf_model.RData")
 ```
 
 Now, let's check the importance of each feature that we have sent as input to the model in predicting each of the target class.
@@ -955,50 +954,99 @@ Now, let's check the importance of each feature that we have sent as input to th
 
 -   **MeanDecreaseGini**: This measures how much the **Gini impurity** (a measure of node purity) is reduced when the feature is used to split the trees. Higher values indicate more important features, as they lead to splits that significantly reduce impurity in the decision trees. Features with high MeanDecreaseGini contribute more to the model's ability to separate classes.
 
-```{r}
+#### 1.4. Performance Evaluation
+
+First, let's start with understanding the importance of each feature as per the model.
+
+```{r rf_feature_imp}
 # to get feature importance 
 print(final_rf$importance)
 
-# to get the model parameters 
-# print(rf_model$control)
-
-# plot the feature importance for better visualization 
+# plot the feature importance for better visualization  
 importance_df <- data.frame(Feature = rownames(final_rf$importance),
-                            Importance = final_rf$importance[, 2])  
+                            Importance = final_rf$importance[, 2])
 
 ggplot(importance_df,
-       aes(x = reorder(Feature, Importance), y = Importance)) +
-  geom_bar(stat = "identity") +
+       aes(x = reorder(Feature, Importance), y = Importance)) + 
+  geom_bar(stat = "identity") + 
   coord_flip() +
-  theme_minimal() +
+  theme_minimal() + 
   labs(title = "Feature Importance in RF Model", x = "Feature", y = "Importance")
 ```
 
 Here, we can see that `title_score`, `video_tag_score` are relatively less important than the `engagement_score`, `video_age` and `comment_score` in predicting the video's trendiness.
 
-#### 1.4. Performance Evaluation
+Now we are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
 
-We are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
-
-```{r}
+```{r rf_model_preds}
 # Predict on your validation set
-pred_probs <- predict(final_rf, newdata = X_val, type = "prob")
 pred_class <- predict(final_rf, newdata = X_val)
 
 # Confusion matrix 
 confusionMatrix(pred_class, y_val)
 ```
 
+\<Summary TB Added\>
+
 ### **2. Logistic Regression**
 
 We will be repeating the `steps 1.2 to 1.4` for Logistic Regression.
 
+*When running for the first time - make sure to enter "yes" in the terminal - to install the required packages*
+
+```{r logit_model, message=FALSE, warning=FALSE}
+
+# Train logistic regression model using features NOT in label creation
+logit_model <- train(
+  formula,
+  data = train_data,
+  method = "glm",
+  family = "binomial",
+  trControl = train_control,
+  metric = "ROC"
+)
+```
+
+```{r logit_model_params}
+# full model details
+print(logit_model$finalModel)
+```
+
+```{r logit_feature_imp}
+# plot the feature importance for better visualization
+importance <- varImp(logit_model, scale = TRUE)
+
+importance_df <- importance$importance
+importance_df$Feature <- rownames(importance_df)
+
+importance_df %>%
+  arrange(desc(Overall)) %>%
+  ggplot(aes(x = reorder(Feature, Overall), y = Overall)) +
+  geom_col(fill = "#2c7fb8") +
+  coord_flip() +
+  labs(title = "Feature Importance - Logistic Regression",
+       x = "Feature",
+       y = "Importance (Abs. Coefficient)") +
+  theme_minimal()
+```
+
+Same as `Random Forest`, we can see that `video_tag_score` isrthe least important variable than the others in predicting the video's trendiness.
+
+```{r logit_model_preds}
+# Predict on your validation set
+pred_class <- predict(logit_model, newdata = X_val)
+
+# Confusion matrix 
+confusionMatrix(pred_class, y_val, positive="Yes")
+```
+
+Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
+
+So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title. Doing this will keep the users engaged and it will make your video to come out on top of the trending list.
+
 ## References
 
 1.  1,800 YouTube videos are posted every minute. [<https://seo.ai/blog/how-many-videos-are-on-youtube>] 
-
-<!-- -->
-
 2.  Avg human attention span was 8 seconds in 2024. [<https://devrix.com/tutorial/user-attention-span/#:~:text=The%20average%20user%20attention%20span,8%20seconds%20in%20recent%20years>.] 
 
 ------------------------------------------------------------------------
