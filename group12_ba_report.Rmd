@@ -742,11 +742,11 @@ Taking a look at the variable contributions to each Principal Component, we dedu
 
 ## Feature Engineering/Selection
 
-We have completed our EDA and now we have understood the dataset completely. We can now create features (or update the existing columns) that will be fed as inputs to the model. There can be various methods of feature engineering such as selecting the important columns or creating new columns by merging (or using any other logic) the existing columns.
+We have now completed our EDA and understand the dataset completely. We can create features (or update the existing columns) that will be fed as inputs to the model. There are various methods of feature engineering such as selecting the just important columns or creating new columns by merging existing columns.
 
 ### 1. Convert Text Columns into Numerical Columns
 
-First, we would start by converting the text columns (`title` and `video_tags`, in our case) into numerical columns, for better model predictability. We would be introducing the `scores` of the said columns using the following logic (`title_score` and `video_tags_score` columns). Take the value in the cell—say 1st cell of `title` or `video_tags` column ("*Highlights Real Madrid vs Barcelona 3-1...*")—and run the words separately through the list of words in `final_title_words` (or `final_tag_words`) and increase the count by 1 every time the word in the cell matches a word in the list. Example: The title "*Highlights Real Madrid vs Barcelona 3-1..."* will get a score of **3.**
+First, we start by converting the text columns (`title` and `video_tags`, in our case) into numerical columns, for better model predictability. Then, we introduce the `scores` of the columns using the following logic (`title_score` and `video_tags_score` columns): take the value in a cell—say the 1st cell of the `title` column: "*Highlights Real Madrid vs Barcelona 3-1...*" Run the words of the title separately through the list of words in `final_title_words`. Increase the count by 1 every time the word in the cell matches a word in the list. Example: the title "*Highlights Real Madrid vs Barcelona 3-1..."* will get a score of **3.**
 
 ```{r udf_calculate_text_score}
 calculate_title_score <- function(title, word_list) {
@@ -768,7 +768,7 @@ yt_df <- yt_df %>%
   mutate(video_tag_score = vapply(video_tags, calculate_title_score, FUN.VALUE = integer(1), word_list = final_tag_words))
 ```
 
-This functions have added a column with the intended purpose. We will be using the synthetic columns inplace of the original text columns while training the model.
+This function has added a column to track the counts. We will be using the synthetic columns in place of the original text columns while training the model.
 
 ```{r export_feature_engg}
 export_data <- function(df, input_filepath){   
@@ -791,13 +791,13 @@ export_data(yt_df, data_filepath)
 
 ### 2. Creating other feature columns
 
-Let's prep the data for that can be fed into the model. We will be creating a few additional columns such as `engagement_score`, `comment_score`, `video_age`, and the target column itself - `trending`. The formula used for the columns are as follows:
+Let's prepare the data to be fed into the model. We will be creating a few additional columns such as `engagement_score`, `comment_score`, `video_age`, and the target column itself: `trending`. The formula used for the columns are as follows:
 
--   `engagement_score` = `like_count` / `view_count` *[Out of the total audience (people who view the video) how many people are liking the video?]*
+-   `engagement_score` = `like_count` / `view_count` (Out of the total audience (people who view the video), how many people are liking the video?)
 
--   `comment_score` = `comment_count` / `view_count` *[Out of the total audience (people who view the video) how many people are liking the video?]*
+-   `comment_score` = `comment_count` / `view_count` (Out of the total audience (people who view the video) how many people are commenting on the video?)
 
--   `video_age` = `snapshot_date` - `publish_date` *[Age of the video from the date it was uploaded to the date when this data was downloaded]*
+-   `video_age` = `snapshot_date` - `publish_date` (Age of the video from the date it was uploaded to the date when this data was downloaded.)
 
 ```{r feature_cols_creation}
 yt_df <- yt_df %>%
@@ -810,7 +810,7 @@ yt_df <- yt_df %>%
   )
 ```
 
-To create the target variable (`trending`) - we start by calculating the `trend_score`. In simple words, the video that gets a `trend_score` of more than 80 (out of 100) will be considered as the positive class (`trending = 1`). The logic to calculate `trend_score` is as follows
+To create the target variable (`trending`), we start by calculating the `trend_score`. In simple terms, the video that gets a `trend_score` of more than 80 (out of 100) will be considered as the positive class (`trending = 1`). The logic to calculate `trend_score` is as follows:
 
 -   `rank_score` -\> based on `daily_rank` column
 
@@ -865,11 +865,11 @@ gc()
 
 ## Model Training
 
-Now that we have prepared our dataset (under the name `yt_df`), we can go ahead and select the appropriate models to classify wheter a video will become trendy. Since this is a binary classification problem (trendy vs not trendy), we selected models well-suited for this task.
+Now that we have prepared our dataset (under the name `yt_df`), we can go ahead and select the appropriate models to classify whether a video will become trendy. Since this is a binary classification problem (trendy vs not trendy), we selected models well-suited for this task.
 
-First, we chose RandomForest. This ensemble method is known for its good performance on classification problems due to its ability to handle non-linear relationships, reduce overfitting through bagging, and provide insights via feature importance. It is also relative robust to noise in the data. We briefly considered Gradient Boosting, which builds models sequentially to correct errors from previous models. However, given our current goals of establishing an interpretable baseline, we decided to start with RandomForest due to its simplicity and faster training time
+First, we chose RandomForest. This ensemble method is known for its high performance on classification problems due to its ability to handle non-linear relationships, reduce overfitting through bagging, and provide insights via feature importance. It is also relative robust to noise in the data. We briefly considered Gradient Boosting, which builds models sequentially to correct errors from previous models. However, given our current goals of establishing an interpretable baseline, we decided to start with RandomForest due to its simplicity and faster training time
 
-Additionally, we selected Logistic Regression. It is a widely used baseline for binary classification, it offers good interpretability. Logistic regression is similar to linear regression but instead it is used with a categorical response (trendy or not trendy).
+Second, we selected Logistic Regression. Widely used as a baseline for binary classification, it offers strong interpretability. Logistic Regression is similar to Linear Regression but is instead used with a categorical response (trendy or not trendy).
 
 ### 1. RandomForest
 
@@ -885,7 +885,7 @@ yt_df <- read.csv(data_filepath)
 
 #### 1.1 Prepping the data
 
-In this section, we will be prepping the dataset even more, to be fed into the model. Like defining the `feature` and `target` variables, and `train-validation` split.
+In this section, we will be further prepping the dataset to be fed into the model. Namely, we will be defining the `feature` and `target` variables, and `train-validation` split.
 
 ```{r feature_target_def}
 # Defining the feature and target variables 
@@ -955,9 +955,9 @@ rf_model <- train(
   )
 ```
 
-#### 1.3. Exporting the model
+#### 1.3. Exporting the Model
 
-Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
+Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning), let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
 
 ```{r rf_model_params}
 # full model details 
