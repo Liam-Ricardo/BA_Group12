@@ -7,6 +7,16 @@ date: "2025-02-17"
 The defined business problem we will focus on for this report is Predicting Video Trendiness: Identify factors that contribute to a video's likelihood of trending on YouTube. Businesses and content creators could use this to optimize their video content and publishing strategies.
 
 Additionally we would like to combine this with Understanding Regional Content Preferences: Analyze differences in trending videos across different countries. This could help businesses tailor their content to specific regions and expand their global reach.
+#libraries
+```{r}
+# Load required libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+
+```
+
 
 #Data
 In data_clean.Rmd a first look at the raw data was done and a first cleaning of the data was executed.
@@ -22,6 +32,8 @@ df <- read.csv(destination_path)
 
 ```
 Now we have loaded the cleaned data set.
+
+
 
 Let's do an Exploratory Data Analysis!
 
