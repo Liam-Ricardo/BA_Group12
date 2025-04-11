@@ -21,101 +21,81 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r}
-
-```
-
-
 
 
 ```{r }
 
-```
-
-
-```{r }
 # Load necessary libraries
 library(dplyr)
 library(ggplot2)
 
 set.seed(123)
 
-# Calculate criteria thresholds
-view_threshold <- quantile(df$view_count, 0.75, na.rm = TRUE)
-
-# Create target variable using weighted criteria
+# Create binary target variable using ONLY a subset of the features
 df <- df %>%
   mutate(
-    weighted_score = (title_score * 20) + 
-                     (video_tag_score * 20) + 
-                     (engagement_score * 20) + 
-                     (comment_score * 20) +
-                     (video_age * 20),
-    trending = as.factor(ifelse(weighted_score >= 80, 1, 0))
+    weighted_score = (title_score * 20) + (video_tag_score * 20),
+    trending = as.factor(ifelse(weighted_score >= quantile(weighted_score, 0.75, na.rm = TRUE), 1, 0))
   ) 
- select(-title, -daily_rank, -daily_movement, -weekly_movement, -snapshot_date, -view_count, -like_count, -comment_count, -video_tags, publish_date)
+#  select(-title, -daily_rank, -daily_movement, -weekly_movement, -snapshot_date,
+        # -view_count, -like_count, -comment_count, -video_tags, -publish_date, -weighted_score)
 
-# Stratified Random Sampling using group_by() and slice_sample()
-df_split <- df %>%
-  group_by(trending) %>%  # Group by the target variable
-  slice_sample(prop = 0.9) %>%  # Sample 90% of each group
-  ungroup()  # Remove grouping after sampling
+# Add row ID to ensure clean stratified sampling
+df$row_id <- 1:nrow(df)
 
-# Create the validation set by filtering out the sampled rows
-val_data <- df %>%
-  anti_join(df_split, by = c("title_score", "video_tag_score", "engagement_score", "comment_score", "video_age", "trending"))
+# Stratified sampling: 90% train per class
+train_indices <- df %>%
+  group_by(trending) %>%
+  slice_sample(prop = 0.9) %>%
+  pull(row_id)
 
-# Shuffle the training and validation data (optional but good practice)
-train_data <- df_split[sample(nrow(df_split)), ]
+# Create train and validation datasets
+train_data <- df %>% filter(row_id %in% train_indices)
+val_data <- df %>% filter(!(row_id %in% train_indices))
+
+# Remove row_id
+train_data <- select(train_data, -row_id)
+val_data <- select(val_data, -row_id)
+
+# Shuffle (optional)
+train_data <- train_data[sample(nrow(train_data)), ]
 val_data <- val_data[sample(nrow(val_data)), ]
 
-# Verify split proportions
+# Check split sizes and distributions
 message("Train size:", nrow(train_data))
 message("Validation size:", nrow(val_data))
 
 message("Train trending distribution:")
-train_trending_distribution <- table(train_data$trending)
-print(train_trending_distribution)
+print(table(train_data$trending))
 
 message("Validation trending distribution:")
-val_trending_distribution <- table(val_data$trending)
-print(val_trending_distribution)
+print(table(val_data$trending))
 
-# Train logistic regression model
-logit_model <- glm(trending ~ title_score + video_tag_score + engagement_score + comment_score + video_age,
-                   data = train_data,
-                   family = "binomial")
+# Train logistic regression model using features NOT in label creation
+logit_model <- glm(trending ~ engagement_score + comment_score + video_age,
+                   data = train_data, family = "binomial")
 
-# Model summary
+# Summary
 summary(logit_model)
 
-# Define evaluation function
+# Evaluation function
 evaluate_model <- function(model, data, dataset_name = "Validation") {
   predictions <- predict(model, newdata = data, type = "response")
-  
-  # Check predictions
-  if (length(predictions) != nrow(data)) {
-    stop("Mismatch in prediction length and data rows")
-  }
-  
   predicted_classes <- factor(ifelse(predictions > 0.5, 1, 0), levels = c(0, 1))
   actual_classes <- data$trending
   
-  # Make confusion matrix
   conf_matrix <- table(Predicted = predicted_classes, Actual = actual_classes)
   
-  # Always print it
   message(paste0("\nConfusion Matrix (", dataset_name, " Set):"))
   print(conf_matrix)
   
-  # Calculate evaluation metrics
+  # Metrics
   total <- sum(conf_matrix)
   accuracy <- if (total == 0) NA else sum(diag(conf_matrix)) / total
   precision <- if (sum(conf_matrix["1", ]) == 0) NA else conf_matrix["1", "1"] / sum(conf_matrix["1", ])
   recall <- if (sum(conf_matrix[, "1"]) == 0) NA else conf_matrix["1", "1"] / sum(conf_matrix[, "1"])
   f1_score <- if (is.na(precision) || is.na(recall) || (precision + recall) == 0) NA else (2 * precision * recall) / (precision + recall)
   
-  # Print metrics
   message(paste("\nEvaluation Metrics (", dataset_name, " Set):", sep = ""))
   message(paste("Accuracy :", round(accuracy, 4)))
   message(paste("Precision:", round(precision, 4)))
@@ -123,7 +103,7 @@ evaluate_model <- function(model, data, dataset_name = "Validation") {
   message(paste("F1 Score :", round(f1_score, 4)))
 }
 
-# Evaluate on training and validation set
+# Evaluate on train and validation sets
 evaluate_model(logit_model, train_data, dataset_name = "Training")
 evaluate_model(logit_model, val_data, dataset_name = "Validation")
 
@@ -137,9 +117,6 @@ ggplot(feature_df, aes(x = reorder(Feature, Importance), y = Importance)) +
   ggtitle("Feature Importance in Trending Prediction") +
   xlab("Feature") +
   ylab("Importance")
-
-```
-
 ```
 
 
