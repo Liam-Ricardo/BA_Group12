@@ -31,15 +31,6 @@ library(ggplot2)
 
 set.seed(123)
 
-# Create binary target variable using ONLY a subset of the features
-df <- df %>%
-  mutate(
-    weighted_score = (title_score * 20) + (video_tag_score * 20),
-    trending = as.factor(ifelse(weighted_score >= quantile(weighted_score, 0.75, na.rm = TRUE), 1, 0))
-  ) 
-#  select(-title, -daily_rank, -daily_movement, -weekly_movement, -snapshot_date,
-        # -view_count, -like_count, -comment_count, -video_tags, -publish_date, -weighted_score)
-
 # Add row ID to ensure clean stratified sampling
 df$row_id <- 1:nrow(df)
 
@@ -72,7 +63,7 @@ message("Validation trending distribution:")
 print(table(val_data$trending))
 
 # Train logistic regression model using features NOT in label creation
-logit_model <- glm(trending ~ engagement_score + comment_score + video_age,
+logit_model <- glm(trending ~ title_score + video_tag_score +  engagement_score + comment_score + video_age,
                    data = train_data, family = "binomial")
 
 # Summary
