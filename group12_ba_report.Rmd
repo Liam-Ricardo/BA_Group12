@@ -702,6 +702,7 @@ cat("\n=========================================================================
 ```
 
 Optional: sort variable loadings by absolute value for each PC. This will generate a large table but does make the loading distribution easier to scan through when looking for the most influential variables in each PC.
+
 ```{r organized pca loadings}
 loadings_trendy <- results_trendy$rotation
 
@@ -867,7 +868,7 @@ gc()
 
 Now that we have prepared our dataset (under the name `yt_df`), we can go ahead and select the appropriate models to classify wheter a video will become trendy. Since this is a binary classification problem (trendy vs not trendy), we selected models well-suited for this task.
 
-First, we chose RandomForest. This ensemble method is known for its good performance on classification problems due to its ability to handle non-linear relationships, reduce overfitting through bagging, and provide insights via feature importance. It is also relative robust to noise in the data. We briefly considered Gradient Boosting, which builds models sequentially to correct errors from previous models. However, given our current goals of establishing an interpretable baseline, we decided to start with RandomForest due to its simplicity and faster training time
+First, we chose RandomForest. This ensemble method is known for its good performance on classification problems due to its ability to handle non-linear relationships, reduce overfitting through bagging, and provide insights via feature importance. It is also relative robust to noise in the data. We briefly considered Gradient Boosting, which builds models sequentially to correct errors from previous models. However, given our current goal of establishing an interpretable baseline, we decided to start with RandomForest due to its simplicity and faster training time.
 
 Additionally, we selected Logistic Regression. It is a widely used baseline for binary classification, it offers good interpretability. Logistic regression is similar to linear regression but instead it is used with a categorical response (trendy or not trendy).
 
@@ -1064,11 +1065,25 @@ confusionMatrix(pred_class, y_val, positive="Yes")
 
 Based on accuracy both the models have higher values, but we need good precision (Pos Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
 
-So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title. Doing this will keep the users engaged and it will make your video to come out on top of the trending list.
+So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title.
 
 ## Conclusion
 
-[conclusion and recommendations of Liam]
+To summarize, the best model suited for our business problem – whether a YouTube video would become trendy or not is the `Logistic Regression` model. For industry experts involved in setting up marketing campaigns it is good to noticed that the interaction of an audience with your content is the main driver for trendiness. The ratios that are best tracked of a single video are like to view and comment to view count. This is in line with what is already commonly seen as a best practice to focus on.
+
+Next to this the title needs to contain the right words to increase likelihood of trendiness of a video. Based on the current dataset we have defined a list called `final_title_words` that can be used to see which words to include in the title.
+
+and `final_tags_words`
+
+In contrast to some best practices, in which it is believed that trendiness of a video has to be reached within a certain time frame e.g. 24-72 hours, our results suggest that this is of little influence compared to the engagement metrics. Another over stressed best practice is to make sure you use much as possible and the correct tags for a video, this has also been shown by the model evaluation to not be as important compared to engagement metrics.
+
+### Recommendations
+
+Based on the results we have the following recommendations for industry professionals to increase the likelihood of a video to reach trendiness:
+
+1.  Prioritize engagement metrics such as likes and comments over tags and video age.
+2.  Use as many words as possible from the generated list called `final_title_words` to include in your video's title.
+3.  To further optimize use the generated list called `final_tags_words` to ensure best tags for trendiness.
 
 ### Limitations
 

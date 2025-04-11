@@ -1,29 +1,30 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 #Trying some feature engineering here.
 
-path = "D:/Netherlands/TU DELFT/Q3 2024/Business Analytics/R/trending_yt_videos_113_countries.csv"
+path = "C:/Users/sabes/Desktop/Group Assignment/trending_yt_videos_113_countries.csv"
 ```
-
 
 ```{r setup, include=FALSE}
 data <- read.csv(path)
 #names(data)
 ```
+
 ```{r}
 library(dplyr)
 ```
-
 
 ```{r}
 library(lubridate)
@@ -50,7 +51,6 @@ data_clean <- data %>%
     ))
 ```
 
-
 ```{r}
 library(ggplot2)
 
@@ -63,6 +63,7 @@ summary(data_clean$days_to_trend)
 head(select(data_clean, publish_date, snapshot_date, days_to_trend))
 
 ```
+
 ```{r}
 # Median days_to_trend by category of language
 category_summary <- data_clean %>%
@@ -76,6 +77,7 @@ ggplot(category_summary, aes(x = reorder(langauge, median_days), y = median_days
   coord_flip() +
   labs(title = "Median Days to Trend by Language", x = "Language", y = "Days")
 ```
+
 ```{r}
 # Calculate engagement ratios
 data_clean <- data_clean %>%
@@ -90,6 +92,7 @@ ggplot(data_clean, aes(x = like_ratio, y = days_to_trend)) +
   geom_smooth(method = "lm") +
   labs(title = "Likes/Views Ratio vs. Days to Trend", x = "Like/View Ratio", y = "Days")
 ```
+
 ```{r}
 # Add publish day of week
 data_clean <- data_clean %>%
@@ -104,6 +107,7 @@ ggplot(day_summary, aes(x = factor(publish_day, levels = c("Monday", "Tuesday", 
   geom_bar(stat = "identity", fill = "#9467bd") +
   labs(title = "Days to Trend by Publish Day", x = "Day", y = "Median Days")
 ```
+
 ```{r}
 # Add publish day of week
 data_clean <- data %>%
@@ -112,13 +116,11 @@ data_clean <- data %>%
 # If it's "character", re-convert dates:
 data_clean <- data_clean %>%
   mutate(
-    publish_date = as.Date(publish_date, format = "%Y-%m-%d")  # Adjust format to match your data
-  )
+    publish_date = as.Date(publish_date, format = "%Y-%m-%d")) %>%
   mutate(publish_day = weekdays(publish_date))
   
 # # Check the class of publish_date
 # class(data_clean$publish_date)  # Should return "Date"
-
 
 # Median days_to_trend by publish day
 day_summary <- data_clean %>%
