@@ -33,6 +33,21 @@ We are using the dataset from Kaggle - [Trending Youtube Video Statistics (113 C
 
 Only use this cells to import all the required libraries. DO NOT import the libraries in any other cells below, it helps with maintaining the code properly and enhances the readability of the code.
 
+```{r install_libraries, include=FALSE}
+local({r <- getOption("repos")
+r["CRAN"] <- "https://cran.rstudio.com/"
+options(repos = r)})
+
+# Install the packages used in this tutorial:
+packages <- c("dplyr","tidyr","stringr","lubridate","ggplot2","textTinyR","tm","hunspell","Snoballc","factoextra","gmodels","c50","Hmisc","rsample","caret","tidyverse","countrycode","VennDiagram")
+
+for (i in packages) {
+    if(!require(i, character.only = TRUE)) {
+        install.packages(i, dependencies = TRUE)
+    }
+}
+```
+
 ```{r import_libraries, include=FALSE}
 library(dplyr) 
 library(tidyr) 
@@ -65,13 +80,13 @@ This cell imports the raw data. Since the data is too large for `GitHub` we can 
 
 ```{r import_dataset}
 # Update this variable with the your own filepath
-data_filepath <-"C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12/trending_yt_videos_113_countries.csv"
+data_filepath <-"C:/Users/sabes/Desktop/Group Assignment/source_code_ba_group_12/datasets/trending_yt_videos_113_countries.csv"
 
 #Import dataset
 yt_df <- read.csv(data_filepath)
 ```
 
-> *Tip: You can run all the cells at once to get the final model (or) you can import different versions of the dataset at particular sections and run the remainder of the codes. The latter is suggested, because of RStudio's limited memory capacity. The places where you can import the already created dataset will be marked with `import dataset (optional)` text.*
+> *Tip: You can run all the cells at once to get the final model (or) you can import different versions of the dataset at particular sections and run the remainder of the codes. The latter is suggested, because of RStudio's limited memory capacity. The places where you can import the specific dataset(s) will be marked with `import dataset (optional)` text and the exact dataset that you should be using at that stage.*
 
 ### 2. Inspecting the Raw Data
 
@@ -205,7 +220,7 @@ clean_character_columns <- function(df) {
 }
 ```
 
-```{r cleaning_unused_memory, include=FALSE}
+```{r cleaning_unused_memory1, include=FALSE}
 gc()
 ```
 
@@ -241,7 +256,7 @@ analyze_columns <- function(df) {
 }
 ```
 
-```{r cleaning_unused_memory, include=FALSE}
+```{r cleaning_unused_memory2, include=FALSE}
 gc()
 ```
 
@@ -281,20 +296,21 @@ Okay, there are no columns with a singular unique value so let's continue.
 This function will export the cleaned data into a `.csv` file into the same path from where you have imported the dataset and with a suffix [`_cleaned`] to the original name.
 
 ```{r udf_export_dataset}
-#export_data <- function(df, input_filepath){   
+# export_data <- function(df, input_filepath){   
 #  output_filepath <- sub(".csv","_cleaned.csv",input_filepath)   
 #  write.csv(df, output_filepath, row.names = FALSE) 
-}
+#}
 ```
 
 ```{r}
-#export_data(yt_df, data_filepath)
+# export_data(yt_df, data_filepath)
 ```
 
-```{r cleaning_unused_memory, include=FALSE}
+```{r cleaning_unused_memory3, include=FALSE}
 # This block removes all the elements from your environment and cleans up unused memory from the session
-# remove(list = ls())
-#gc()
+vars_list = c("yt_df","data_filepath")
+remove(list=setdiff(ls(), vars_list))
+gc()
 ```
 
 ------------------------------------------------------------------------
@@ -477,7 +493,7 @@ print(paste("Final Tags:", length(final_tag_words), toString(final_tag_words)))
 
 Now, we have 2 lists of words that we can use to introduce a synthetic column that, in turn, can be used as a feature to train the model.
 
-```{r cleaning_unused_memory, include=FALSE}
+```{r cleaning_unused_memory4, include=FALSE}
 gc()
 ```
 
@@ -485,12 +501,13 @@ There are also a few columns that seem to be irrelevant in helping our model pre
 
 The variable `language` had a lot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are even 2280084 values "missing" which are instances in which the language of the video was not recognized. This is too much so we decided to not include this variable.
 
-### 2. Bivariate Analysis 
+### 2. Bivariate Analysis
 
-### 2.1 Country and video trendiness
+#### 2.1. Country and video trendiness
+
 Let us take a look at the `country` column, as it may yield interesting geographical insights into the trendiness of a video. Initially, this column uses ISO2 country codes, which are not very readable. For clarity, we generate a new column that maps these codes to their full country names.
 
-```{r full country names}
+```{r full_country_names}
 yt_df$full_country_name <- countrycode(
   sourcevar = yt_df$country,
   origin = "iso2c",
@@ -507,20 +524,21 @@ After creating this new `full_country_name` column, we observe that the dataset 
 
 To begin, we group the dataset by country and count the number of videos per country to understand how frequently each appears in the data.
 
-```{r group the dataset per country}
+```{r group_dataset_per_country}
 grouped_df <- yt_df%>% group_by(country)
 country_counts <- grouped_df%>% summarise(count = n())
 print(country_counts)
 summary(country_counts)
+
 #ungrouping if wanted
 #df_ungrouped <- grouped_df %>% ungroup()
 ```
 
-This reveals a small but clear difference in video frequency across countries—. with a minimum of 24074 videos and a maximum of 24359. This distribution could reflect differences in regional usage of YouTube videos.
+This reveals a small but clear difference in video frequency across countries - with a `minimum` of `24074` videos and a `maximum` of `24359`. This distribution could reflect differences in regional usage of YouTube videos.
 
 To delve deeper, we calculate the median daily rank for each country. Since for now a lower daily rank indicates higher trendiness, this measure helps us identify which countries tend to produce trendier content. To maintain clarity and focus on meaningful insights, we narrow our analysis to the top 10% of countries with the lowest median daily rank.
 
-```{r plotting the data grouped by countries}
+```{r plot_grouped_data_by_countries}
 # 1. Calculate the median daily_rank and total video count for each country
 country_summary <- yt_df %>%
   group_by(country) %>%
@@ -571,7 +589,7 @@ There are clear outliers present within each country, while the majority of vide
 
 Next, we take a broader view by identifying the top 10% of countrie**s** based on three different performance metrics:
 
-1.   Average view count
+1.  Average view count
 
 2.  Median like count
 
@@ -610,7 +628,7 @@ These lists help us explore whether the same countries consistently dominate acr
 
 To visualize the overlap between these three top-performing groups, we generate a Venn diagram.
 
-```{r VennDiagram 3 lists}
+```{r VennDiagram_3_lists}
 list_avg_view_count <- top_avg_view_count
 list_avg_like_count <- top_avg_like_count
 list_video_count <- top_video_count
@@ -640,21 +658,19 @@ It shows that out of the 11 countries in each list, 6 countries appear in both t
 While the geographical analysis provided valuable insights—highlighting regional variations in daily rank and engagement patterns—we have decided not to include the `country` column in the remainder of the report. This decision is based on the assumption that our target audience, marketing industry professionals, are aiming for global reach. Therefore, their primary interest lies in identifying the overall drivers of trendiness on YouTube, regardless of geographical location. From this point forward, the focus will shift to universal predictors of video success across all countries.
 
 ```{r dropping the country column}
-yt_df <- yt_df %>% select(-country)
+yt_df <- yt_df %>% select(-c("country", "full_country_name"))
 ```
 
-### 2.2 Language vs. Days to Trend
-Objective: To explore whether the language of a video influences how quickly it trends.
+#### 2.2. Like/View Ratio vs. Days to Trend
 
-Why this matters: Language may reflect the audience size, cultural virality, or regional algorithm differences. A video in a widely spoken or digitally active language might trend faster due to more immediate engagement.
+Objective: To analyze how the like-to-view ratio affects the time it takes for a video to trend.
 
-Before performing bivariate analysis, we need to calculate the number of days a video takes to trend after its initial publishing. This is done by subtracting the publish_date from the snapshot_date (date when the video appeared on the trending list).
+Why this matters: Engagement is a strong signal for virality. Videos with high like/view ratios may be seen as higher quality or more engaging, possibly accelerating their rise to trending.
 
 ```{r}
-library(lubridate)
-library(dplyr)
+
 # Convert dates and calculate days_to_trend
-data_clean <- data %>%
+data_clean <- yt_df %>%
   # Handle different datetime formats (adjust based on your data's format)
   mutate(
     # Convert publish date (common YouTube format: "2023-01-15T14:30:15Z")
@@ -676,35 +692,7 @@ data_clean <- data %>%
     ))
 ```
 
-Based on the summary statistics of days_to_trend
-The median of 5 days shows that most videos trend within a week.
-The long tail (max 38 days) shows that some videos gain attention much later.
-The mean (6.57) being higher than the median suggests a slightly right-skewed distribution.
-Now, we can actually perform bivariate analysis based o days to trend as well as the language.
-
-```{r}
-# Median days_to_trend by category of language
-category_summary <- data_clean %>%
-  group_by(langauge) %>%
-  summarise(median_days = median(days_to_trend, na.rm = TRUE)) %>%
-  arrange(median_days)
-
-# Plot
-ggplot(category_summary, aes(x = reorder(langauge, median_days), y = median_days)) +
-  geom_bar(stat = "identity", fill = "#ff7f0e") +
-  coord_flip() +
-  labs(title = "Median Days to Trend by Language", x = "Language", y = "Days")
-```
-This plot displays the median number of days it takes for a video to trend, grouped by the language it's published in. We sort the bars to better observe which languages tend to trend faster. Languages like Russian (ru), Japanese (ja), and Korean (ko) show higher median values — suggesting videos in these languages tend to trend more slowly. On the contrary, languages with lower medians indicate faster trending, possibly due to higher digital activity or algorithmic priority in those regions.
-This analysis can help content creators target certain linguistic audiences if their goal is to trend quickly.
-
-### 2.3 Like/View Ratio vs. Days to Trend
-
-Objective: To analyze how the like-to-view ratio affects the time it takes for a video to trend.
-
-Why this matters: Engagement is a strong signal for virality. Videos with high like/view ratios may be seen as higher quality or more engaging, possibly accelerating their rise to trending.
-
-```{r}
+```{r warning=FALSE}
 # Calculate engagement ratios
 data_clean <- data_clean %>%
   mutate(
@@ -718,11 +706,10 @@ ggplot(data_clean, aes(x = like_ratio, y = days_to_trend)) +
   geom_smooth(method = "lm") +
   labs(title = "Likes/Views Ratio vs. Days to Trend", x = "Like/View Ratio", y = "Days")
 ```
-Here, we calculate the like/view ratio as a proxy for viewer engagement. This ratio is plotted against the number of days it took the video to trend. A linear regression line is also added to observe the overall trend.
-There is a noticeable negative correlation: videos with a higher like/view ratio tend to trend faster. This supports the idea that engagement quality matters more than just raw view counts.
-The regression line slopes downward, further confirming that better audience feedback (likes) relative to views helps videos gain trending momentum more quickly.
 
-### 2.4 Day of Publish vs. Days to Trend
+Here, we calculate the like/view ratio as a proxy for viewer engagement. This ratio is plotted against the number of days it took the video to trend. A linear regression line is also added to observe the overall trend. There is a noticeable negative correlation: videos with a higher like/view ratio tend to trend faster. This supports the idea that engagement quality matters more than just raw view counts. The regression line slopes downward, further confirming that better audience feedback (likes) relative to views helps videos gain trending momentum more quickly.
+
+#### 2.3. Day of Publish vs. Days to Trend
 
 Objective: To identify whether publishing on specific days of the week affects how soon a video trends.
 
@@ -730,8 +717,8 @@ Why this matters: YouTube user traffic may vary by day — for example, weekends
 
 ```{r}
 # Add publish day of week
-data_clean <- data %>%
-  filter(!is.na(publish_date))
+#data_clean <- yt_df %>%
+#  filter(!is.na(publish_date))
 
 # If it's "character", re-convert dates:
 data_clean <- data_clean %>%
@@ -739,9 +726,6 @@ data_clean <- data_clean %>%
     publish_date = as.Date(publish_date, format = "%Y-%m-%d")) %>%
   mutate(publish_day = weekdays(publish_date))
   
-# # Check the class of publish_date
-# class(data_clean$publish_date)  # Should return "Date"
-
 # Median days_to_trend by publish day
 day_summary <- data_clean %>%
   group_by(publish_day) %>%
@@ -754,8 +738,14 @@ ggplot(day_summary, aes(x = factor(publish_day, levels = c("Monday", "Tuesday", 
   labs(title = "Days to Trend by Publish Day", x = "Day", y = "Median Days")
 ```
 
-We extract the day of the week from the video’s publish date and examine if it impacts the time taken to trend. Days are ordered from Monday to Sunday for a clean comparison.
-Interestingly, the median time to trend remains consistent across all days, around 5 days. This implies that publish timing does not significantly impact how quickly a video trends. It may indicate that content quality and engagement outweigh the influence of timing, at least when viewed from a weekly scale.
+We extract the day of the week from the video’s publish date and examine if it impacts the time taken to trend. Days are ordered from Monday to Sunday for a clean comparison. Interestingly, the median time to trend remains consistent across all days, around 5 days. This implies that publish timing does not significantly impact how quickly a video trends. It may indicate that content quality and engagement outweigh the influence of timing, at least when viewed from a weekly scale.
+
+```{r cleaning_unused_memory5, include=FALSE}
+# This block removes all the elements from your environment and cleans up unused memory from the session
+vars_list = c("yt_df","final_tag_words","final_title_words","final_results","tokenize","stopwords_list","data_filepath")
+remove(list=setdiff(ls(), vars_list))
+gc()
+```
 
 ### 3. Outlier Identification
 
@@ -873,7 +863,7 @@ Because `snapshot_date` is the same for all videos, we can drop that column. We 
 
 Let's convert `title` and `publish_date` to numeric:
 
-```{r numeric conversion}
+```{r numeric_conversion}
 #title
 trendy_df_numeric$title_numeric <- as.numeric(factor(trendy_df_numeric$title))
 
@@ -895,14 +885,14 @@ trendy_df_numeric <- trendy_df_numeric %>% select(-c(ratio_like_view, ratio_comm
 
 Let's drop any nulls and double check that we are set on that front.
 
-```{r drop null}
+```{r drop_null1}
 trendy_df_numeric <- trendy_df_numeric %>% drop_na()
 colSums(is.na(trendy_df_numeric))
 ```
 
 With no more nulls and all columns being numeric, relevant and of appropriate values, we can standardize our trendy dataset.
 
-```{r standardize}
+```{r standardize2}
 trendy_standardized <- scale(trendy_df_numeric[, !names(trendy_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
 summary(trendy_standardized)
 ```
@@ -917,7 +907,7 @@ full_df_numeric <- yt_df
 
 First, we convert the same columns to numeric: `title` and `publish_date`.
 
-```{r numeric conversion}
+```{r numeric_conversion2}
 #title
 full_df_numeric$title_numeric <- as.numeric(factor(full_df_numeric$title))
 
@@ -933,7 +923,7 @@ full_df_numeric <- full_df_numeric %>% select(-c(title, publish_date, video_tags
 
 Let's check for nulls and drop any that arise.
 
-```{r drop null}
+```{r drop_null2}
 colSums(is.na(full_df_numeric))
 full_df_numeric <- full_df_numeric %>% drop_na()
 colSums(is.na(full_df_numeric))
@@ -941,7 +931,7 @@ colSums(is.na(full_df_numeric))
 
 Nice. We are now in a position to standardize.
 
-```{r standardize}
+```{r standardize1}
 full_standardized <- scale(full_df_numeric[, !names(full_df_numeric) %in% "classe" ], center = TRUE, scale = TRUE)
 ```
 
@@ -993,6 +983,13 @@ for (pc in colnames(loadings_full)) {
 }
 ```
 
+```{r cleaning_unused_memory6, include=FALSE}
+# This block removes all the elements from your environment and cleans up unused memory from the session
+vars_list = c("yt_df","final_tag_words","final_title_words","final_results","tokenize","stopwords_list","data_filepath")
+remove(list=setdiff(ls(), vars_list))
+gc()
+```
+
 **PCA Insights:**
 
 Taking a look at the variable contributions to each Principal Component, we deduce the following:
@@ -1040,25 +1037,6 @@ yt_df <- yt_df %>%
 ```
 
 This functions have added a column with the intended purpose. We will be using the synthetic columns inplace of the original text columns while training the model.
-
-```{r export_feature_engg}
-export_data <- function(df, input_filepath){   
-  output_filepath <- sub(".csv","_feature_engg.csv",input_filepath)   
-  write.csv(df, output_filepath, row.names = FALSE) 
-}
-
-export_data(yt_df, data_filepath)
-```
-
-#### Import Dataset (Optional)
-
-```{r}
-# Update this variable with the your own filepath
-# data_filepath <- "./dataset/trending_yt_videos_113_countries_feature_engg.csv"
-
-#Import dataset
-# yt_df <- read.csv(data_filepath)
-```
 
 ### 2. Creating other feature columns
 
@@ -1123,14 +1101,23 @@ calculate_trend_score <- function(df) {
 yt_df <- calculate_trend_score(yt_df)
 ```
 
-```{r export_model_training}
-export_data <- function(df, input_filepath){   
-  output_filepath <- sub(".csv","_model_training.csv",input_filepath)   
-  write.csv(df, output_filepath, row.names = FALSE) 
-}
+#### Export Dataset (Optional)
 
-export_data(yt_df, data_filepath)
+```{r export_model_training, include=FALSE}
+#export_data <- function(df, input_filepath){   
+#  output_filepath <- sub(".csv","_model_training.csv",input_filepath)   
+#  write.csv(df, output_filepath, row.names = FALSE) 
+#}
 
+#export_data(yt_df, data_filepath)
+
+gc()
+```
+
+```{r cleaning_unused_memory7, include=FALSE}
+# This block removes all the elements from your environment and cleans up unused memory from the session
+vars_list = c("yt_df","data_filepath")
+remove(list=setdiff(ls(), vars_list))
 gc()
 ```
 
@@ -1148,10 +1135,10 @@ Additionally, we selected Logistic Regression. It is a widely used baseline for 
 
 ```{r}
 # Update this variable with the your own filepath 
- data_filepath <- "C:/Users/LRJPu/OneDrive - Delft University of Technology/Documenten/TU delft/MOT/Y1-Q3/BA/Assignment/BA_Group12_Final/trending_yt_videos_113_countries_model_training.csv"
+#data_filepath <- "./dataset/trending_yt_videos_113_countries_model_training.csv"
 
 #Import dataset
-yt_df <- read.csv(data_filepath)
+#yt_df <- read.csv(data_filepath)
 ```
 
 #### 1.1 Prepping the data
@@ -1159,9 +1146,17 @@ yt_df <- read.csv(data_filepath)
 In this section, we will be prepping the dataset even more, to be fed into the model. Like defining the `feature` and `target` variables, and `train-validation` split.
 
 ```{r feature_target_def}
-# Defining the feature and target variables 
+
+# setting the default seed to train a reproducable model
+set.seed(123)
+
+# Defining the feature and target variables
 features <- c("title_score","video_tag_score","engagement_score","comment_score","video_age") 
 target <- "trending"
+
+selected_cols <- c(features, target)
+
+final_df <- yt_df %>% select(all_of(selected_cols))
 
 # formula to be passed into the model(s)
 formula <- as.formula(paste(target, "~", paste(features, collapse = "+")))
@@ -1175,7 +1170,7 @@ yt_df[[target]] <- factor(yt_df[[target]],
 
 ```{r train_val_split, warning=FALSE}
 # spliting the data into train and validation sets 
-split <- initial_split(yt_df, prop = 0.9, strata = target)
+split <- initial_split(final_df, prop = 0.9, strata = target)
 train_data <- training(split)
 val_data <- testing(split)  
 
@@ -1204,7 +1199,7 @@ train_control <- trainControl(method="repeatedcv",
 
 Now, that we have the data in the proper required format, we can start defining the model and train it.
 
-```{r rf_model}
+```{r rf_model, warning=FALSE}
 # (Optional) manual hyperparameter tuning 
 # add tuneGrid = tune_grid into rf_model to use this
 # tune_grid <- expand.grid(
@@ -1221,12 +1216,12 @@ rf_model <- train(
   method = "rf",
   metric = "ROC",
   trControl = train_control,
-  tuneLength = 10, # automated hyperparameter tuning
+  # tuneLength = 10, # automated hyperparameter tuning
   importance = TRUE
   )
 ```
 
-#### 1.3. Exporting the model
+#### 1.3. Model Parameters
 
 Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
 
@@ -1269,7 +1264,7 @@ ggplot(importance_df,
 
 Here, we can see that `title_score`, `video_tag_score` are relatively less important than the `engagement_score`, `video_age` and `comment_score` in predicting the video's trendiness.
 
-Now we are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
+Now, we are going to use the trained model to predict some unseen data. This will help us understand the actual performance of the model in the real-world where it will come across new data from time to time.
 
 ```{r rf_model_preds}
 # Predict on your validation set
@@ -1279,7 +1274,7 @@ pred_class <- predict(final_rf, newdata = X_val)
 confusionMatrix(pred_class, y_val)
 ```
 
-\<Summary TB Added\>
+As we can see from the confusion matrix, the Random Forest model has pretty high `accuracy (~ 99.48%)` - *sounds like an overfitted model* - But this is okay, since the count of positive class is very low compared to the negative class. We have used the cross-validation and hyperparameter tuning while training the model. This should suppress the overfitting problem. Moving on to the other scores, we have got a pretty good `precision (63.82%)` meaning that our model is correctly classifying the trending videos as trending. This is something which we really want. The `Recall` and `F1 scores (~10.05% & ~17.26%)` are in the lower range which could be improved using weights for the classes.
 
 ### **2. Logistic Regression**
 
@@ -1323,7 +1318,7 @@ importance_df %>%
   theme_minimal()
 ```
 
-Samilar as `Random Forest`, we can see that `video_tag_score` is the least important variable compared to `title_score` , `engagement_score` , `comment_score` , and `video_age`.
+Same as `Random Forest`, we can see that `video_tag_score` is the least important variable than the others in predicting the video's trendiness.
 
 ```{r logit_model_preds}
 # Predict on your validation set
@@ -1333,9 +1328,9 @@ pred_class <- predict(logit_model, newdata = X_val)
 confusionMatrix(pred_class, y_val, positive="Yes")
 ```
 
-Based on accuracy both the models have higher values, but we need good precision (Postive Predictive Value) and Recall (sensitivity) for our use case, ie reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video.
+Based on accuracy, both the models have higher values, but we need good precision (Postive Predictive Value) and Recall (sensitivity) for our use case (i.e. reducing the number of errors (both Type 1 and Type 2) to better understand the factors that are influencing the trendiness of a video).
 
-So, based on these conditions we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (ie like to view count), `comment_score` (ie comment to view count), and `title_score` (ie the title with catchy words) can influence the video's trendiness. Other factors like `video_age`, and `video_tag_score` can influence it a bit, but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and using catchy words in the Title.
+Based on these conditions, we will be using the `Logistic Regression` model to predict the trending videos moving forward. As we can see from the importance of the features, a higher `engagement_score` (i.e. like-to-view count), `comment_score` (i.e. comment-to-view count), and `title_score` (i.e. the title with catchy words) can influence the video's trendiness. Other factors such as `video_age` and `video_tag_score` can influence it somewhat but better to focus on gaining more subscribers (to increase the `engagement_score` and `comment_score`) and use catchy words in the `title`. Doing so will keep the users engaged and it will make your video to come out on top of the trending list.
 
 ## Conclusion
 
@@ -1347,7 +1342,7 @@ In addition, the title of the video plays a important role in capturing initial 
 
 Interestingly, our model challenges two commonly held industry assumptions:
 
--    *Time-sensitivity* (e.g., going viral within 24–72 hours) appears to be less influential than engagement metrics.
+-   *Time-sensitivity* (e.g., going viral within 24–72 hours) appears to be less influential than engagement metrics.
 
 -   *Video tags,* although often emphasized in optimization strategies, show limited predictive value for trendiness compared to likes, comments, and title wording.
 
@@ -1355,16 +1350,12 @@ Interestingly, our model challenges two commonly held industry assumptions:
 
 To improve the likelihood that a video will trend, we recommend the following strategies:
 
-1.   **Focus on Boosting Engagement:**
-    -   Prioritize increasing likes and comments, as these are the strongest predictors of trendiness.
-    -   Tactics to consider include launching videos alongside giveaways, exclusive offers, or campaigns that encourage users to like and comment.
+1.  **Focus on Boosting Engagement:** - Prioritize increasing likes and comments, as these are the strongest predictors of trendiness. - Tactics to consider include launching videos alongside giveaways, exclusive offers, or campaigns that encourage users to like and comment.
 2.  **Optimize Video Titles:**
     -   Place strong emphasis on crafting an effective title, as it is the second most influential factor after engagement.
 
-    -    Incorporate as many relevant terms as possible from the `final_title_words` list into your video titles as they were identified as having the highest positive impact on trendiness in our model.
-3.   **Refine Use of Tags (Optional):**
-    -   Consider tags as an additional optimization lever after engagement and titles are addressed.
-    -   While tags are less influential, you can still use the `final_tags_words` list to inform your selection of tags.
+    -   Incorporate as many relevant terms as possible from the `final_title_words` list into your video titles as they were identified as having the highest positive impact on trendiness in our model.
+3.  **Refine Use of Tags (Optional):** - Consider tags as an additional optimization lever after engagement and titles are addressed. - While tags are less influential, you can still use the `final_tags_words` list to inform your selection of tags.
 
 ### Limitations
 
