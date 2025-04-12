@@ -80,7 +80,7 @@ This cell imports the raw data. Since the data is too large for `GitHub` we can 
 
 ```{r import_dataset}
 # Update this variable with the your own filepath
-data_filepath <-"C:/Users/sabes/Desktop/Group Assignment/source_code_ba_group_12/datasets/trending_yt_videos_113_countries.csv"
+data_filepath <- "C:/Users/sabes/Desktop/Group Assignment/source_code_ba_group_12/datasets/trending_yt_videos_113_countries.csv"
 
 #Import dataset
 yt_df <- read.csv(data_filepath)
@@ -260,7 +260,7 @@ analyze_columns <- function(df) {
 gc()
 ```
 
-```{r}
+```{r warning=FALSE}
 null_df <- analyze_columns(yt_df) 
 print(null_df)
 ```
@@ -573,20 +573,6 @@ ggplot(df_filtered, aes(x = reorder(country, daily_rank, FUN = median), y = dail
 
 This boxplot visualization of the top 10% of countries confirms that daily_rank is calculated within each country, not globally. Given that the daily rank ranges from 0 to 50 within countries, it's intuitive that the median sits around 25. This supports the common industry understanding that YouTube trends are often localized, with algorithms tailoring recommendations based on the viewer's region.
 
-To further explore regional performance, we visualize how daily movement relates to view counts within the top-ranking countries.
-
-```{r plotting top 10% countries in relation to daily_rank}
-ggplot(df_filtered, aes(x = daily_movement, y = view_count/10^6, color = country)) +
-  geom_point() +
-  facet_wrap(~ country) +
-  labs(title = "Daily Rank vs View Count for Top 10% Countries",
-       x = "Daily Movement",
-       y = "View Count(Millions)") +
-  theme_minimal()
-```
-
-There are clear outliers present within each country, while the majority of videos are densely clustered around lower view counts and moderate daily movement. Additionally, the spread of points varies across countries, indicating differing engagement patterns and distribution of video performance.
-
 Next, we take a broader view by identifying the top 10% of countrie**s** based on three different performance metrics:
 
 1.  Average view count
@@ -639,7 +625,7 @@ venn.plot <- venn.diagram(
     "Avg Like Count" = list_avg_like_count,
     "Video Count" = list_video_count
   ),
-  filename = NULL,  # Keep the plot in memory instead of saving to a file
+  filename = NULL,
   fill = c("red", "blue", "green"),
   alpha = 0.5,
   cex = 1.5,
@@ -716,10 +702,6 @@ Objective: To identify whether publishing on specific days of the week affects h
 Why this matters: YouTube user traffic may vary by day — for example, weekends might have higher user activity. Knowing this can help with timing strategy for releasing videos.
 
 ```{r}
-# Add publish day of week
-#data_clean <- yt_df %>%
-#  filter(!is.na(publish_date))
-
 # If it's "character", re-convert dates:
 data_clean <- data_clean %>%
   mutate(
@@ -1110,8 +1092,6 @@ yt_df <- calculate_trend_score(yt_df)
 #}
 
 #export_data(yt_df, data_filepath)
-
-gc()
 ```
 
 ```{r cleaning_unused_memory7, include=FALSE}
@@ -1135,10 +1115,10 @@ Additionally, we selected Logistic Regression. It is a widely used baseline for 
 
 ```{r}
 # Update this variable with the your own filepath 
-#data_filepath <- "./dataset/trending_yt_videos_113_countries_model_training.csv"
+# data_filepath <- "./datasets/trending_yt_videos_113_countries_model_training.csv"
 
 #Import dataset
-#yt_df <- read.csv(data_filepath)
+# yt_df <- read.csv(data_filepath)
 ```
 
 #### 1.1 Prepping the data
@@ -1154,10 +1134,6 @@ set.seed(123)
 features <- c("title_score","video_tag_score","engagement_score","comment_score","video_age") 
 target <- "trending"
 
-selected_cols <- c(features, target)
-
-final_df <- yt_df %>% select(all_of(selected_cols))
-
 # formula to be passed into the model(s)
 formula <- as.formula(paste(target, "~", paste(features, collapse = "+")))
 
@@ -1170,14 +1146,11 @@ yt_df[[target]] <- factor(yt_df[[target]],
 
 ```{r train_val_split, warning=FALSE}
 # spliting the data into train and validation sets 
-split <- initial_split(final_df, prop = 0.9, strata = target)
+split <- initial_split(yt_df, prop = 0.9, strata = target)
 train_data <- training(split)
 val_data <- testing(split)  
 
-# prepping the data to be fed into the model 
-X_train <- train_data[, features]
-y_train <- train_data[, target]
-
+# splitting the data to be used for final validation
 X_val <- val_data[, features]
 y_val <- val_data[, target]
 ```
@@ -1199,6 +1172,8 @@ train_control <- trainControl(method="repeatedcv",
 
 Now, that we have the data in the proper required format, we can start defining the model and train it.
 
+> *Note - We have commented this piece of code as it was throwing error while knitting. Since, we couldn't run everything from a single notebook (or) with different notebooks in a single run, we have separated the model training section to a different notebook. But we have added screenshots from that run in-place of the actual output.*
+
 ```{r rf_model, warning=FALSE}
 # (Optional) manual hyperparameter tuning 
 # add tuneGrid = tune_grid into rf_model to use this
@@ -1209,26 +1184,26 @@ Now, that we have the data in the proper required format, we can start defining 
 #  num.trees = c(100, 150, 200, 250, 300, 500, 750, 1000)
 #  )
 
-# random forest model
-rf_model <- train(
-  formula,
-  data = train_data,
-  method = "rf",
-  metric = "ROC",
-  trControl = train_control,
-  # tuneLength = 10, # automated hyperparameter tuning
-  importance = TRUE
-  )
+# random forest model - commenting for knitting purposes
+# rf_model <- train(
+#  formula,
+#  data = train_data,
+#  method = "rf",
+#  metric = "ROC",
+#  trControl = train_control,
+#  ntree=100,
+#  tuneLength = 10, # automated hyperparameter tuning
+#  importance = TRUE
+#  )
 ```
 
 #### 1.3. Model Parameters
 
-Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also be exporting the model into a `.RData` file, so that it can be used in the future.
+Now, that we have our model trained with the training data (including cross-validation and hyperparameter tuning). Let's go ahead and check the model parameters. We will also have an option to export the model into a `.RData` file, so that it can be used in the future.
 
 ```{r rf_model_params}
 # full model details 
-final_rf <- rf_model$finalModel
-print(final_rf)
+# final_rf <- rf_model$finalModel
 
 # saving the model for future use 
 # save(rf_model, file = "rf_model.RData")
@@ -1242,24 +1217,26 @@ Now, let's check the importance of each feature that we have sent as input to th
 
 -   **MeanDecreaseGini**: This measures how much the **Gini impurity** (a measure of node purity) is reduced when the feature is used to split the trees. Higher values indicate more important features, as they lead to splits that significantly reduce impurity in the decision trees. Features with high MeanDecreaseGini contribute more to the model's ability to separate classes.
 
+![Random Forest - Feature Importance](rf_model_images/rf_importance.jpg)
+
 #### 1.4. Performance Evaluation
 
 First, let's start with understanding the importance of each feature as per the model.
 
 ```{r rf_feature_imp}
 # to get feature importance 
-print(final_rf$importance)
+# print(final_rf$importance)
 
 # plot the feature importance for better visualization  
-importance_df <- data.frame(Feature = rownames(final_rf$importance),
-                            Importance = final_rf$importance[, 2])
+# importance_df <- data.frame(Feature = rownames(final_rf$importance),
+#                            Importance = final_rf$importance[, 2])
 
-ggplot(importance_df,
-       aes(x = reorder(Feature, Importance), y = Importance)) + 
-  geom_bar(stat = "identity") + 
-  coord_flip() +
-  theme_minimal() + 
-  labs(title = "Feature Importance in RF Model", x = "Feature", y = "Importance")
+# ggplot(importance_df,
+#       aes(x = reorder(Feature, Importance), y = Importance)) + 
+#  geom_bar(stat = "identity") + 
+#  coord_flip() +
+#  theme_minimal() + 
+#  labs(title = "Feature Importance in RF Model", x = "Feature", y = "Importance")
 ```
 
 Here, we can see that `title_score`, `video_tag_score` are relatively less important than the `engagement_score`, `video_age` and `comment_score` in predicting the video's trendiness.
@@ -1268,11 +1245,13 @@ Now, we are going to use the trained model to predict some unseen data. This wil
 
 ```{r rf_model_preds}
 # Predict on your validation set
-pred_class <- predict(final_rf, newdata = X_val)
+# pred_class <- predict(final_rf, newdata = X_val)
 
 # Confusion matrix 
-confusionMatrix(pred_class, y_val)
+# confusionMatrix(pred_class, y_val)
 ```
+
+![Random Forest - Confusion Matrix](rf_model_images/rf_confusion_matrix.jpg)
 
 As we can see from the confusion matrix, the Random Forest model has pretty high `accuracy (~ 99.48%)` - *sounds like an overfitted model* - But this is okay, since the count of positive class is very low compared to the negative class. We have used the cross-validation and hyperparameter tuning while training the model. This should suppress the overfitting problem. Moving on to the other scores, we have got a pretty good `precision (63.82%)` meaning that our model is correctly classifying the trending videos as trending. This is something which we really want. The `Recall` and `F1 scores (~10.05% & ~17.26%)` are in the lower range which could be improved using weights for the classes.
 
