@@ -28,6 +28,7 @@ library(dplyr)
 
 ```{r}
 library(lubridate)
+library(dplyr)
 # Convert dates and calculate days_to_trend
 data_clean <- data %>%
   # Handle different datetime formats (adjust based on your data's format)
