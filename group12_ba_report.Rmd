@@ -485,10 +485,9 @@ There are also a few columns that seem to be irrelevant in helping our model pre
 
 The variable `language` had a lot of empty values, and different type of values e.g.: "zh-TW", or "ja",or "en-US". There are even 2280084 values "missing" which are instances in which the language of the video was not recognized. This is too much so we decided to not include this variable.
 
-### 2. Bivariate Analysis \<Content TB Added\>
+### 2. Bivariate Analysis 
 
-<!--# Shalakha, can you please update this? If I remember correctly, you had graphs related to understanding the relationship between age of the video and trendiness -->
-
+### 2.1 Country and video trendiness
 Let us take a look at the `country` column, as it may yield interesting geographical insights into the trendiness of a video. Initially, this column uses ISO2 country codes, which are not very readable. For clarity, we generate a new column that maps these codes to their full country names.
 
 ```{r full country names}
@@ -643,6 +642,120 @@ While the geographical analysis provided valuable insights—highlighting region
 ```{r dropping the country column}
 yt_df <- yt_df %>% select(-country)
 ```
+
+### 2.2 Language vs. Days to Trend
+Objective: To explore whether the language of a video influences how quickly it trends.
+
+Why this matters: Language may reflect the audience size, cultural virality, or regional algorithm differences. A video in a widely spoken or digitally active language might trend faster due to more immediate engagement.
+
+Before performing bivariate analysis, we need to calculate the number of days a video takes to trend after its initial publishing. This is done by subtracting the publish_date from the snapshot_date (date when the video appeared on the trending list).
+
+```{r}
+library(lubridate)
+library(dplyr)
+# Convert dates and calculate days_to_trend
+data_clean <- data %>%
+  # Handle different datetime formats (adjust based on your data's format)
+  mutate(
+    # Convert publish date (common YouTube format: "2023-01-15T14:30:15Z")
+    publish_date = as.Date(ymd_hms(publish_date)),
+    
+    # Convert snapshot date (common format: "2023-01-20")
+    snapshot_date = as.Date(snapshot_date),
+    
+    # Calculate days between trending and publish dates
+    days_to_trend = as.numeric(snapshot_date - publish_date)
+  ) %>%
+  
+  # Handle invalid date calculations
+  mutate(
+    days_to_trend = case_when(
+      days_to_trend < 0 ~ NA_real_,   # Invalid if trending before publishing
+      is.na(days_to_trend) ~ NA_real_,# Preserve existing NAs
+      TRUE ~ days_to_trend
+    ))
+```
+
+Based on the summary statistics of days_to_trend
+The median of 5 days shows that most videos trend within a week.
+The long tail (max 38 days) shows that some videos gain attention much later.
+The mean (6.57) being higher than the median suggests a slightly right-skewed distribution.
+Now, we can actually perform bivariate analysis based o days to trend as well as the language.
+
+```{r}
+# Median days_to_trend by category of language
+category_summary <- data_clean %>%
+  group_by(langauge) %>%
+  summarise(median_days = median(days_to_trend, na.rm = TRUE)) %>%
+  arrange(median_days)
+
+# Plot
+ggplot(category_summary, aes(x = reorder(langauge, median_days), y = median_days)) +
+  geom_bar(stat = "identity", fill = "#ff7f0e") +
+  coord_flip() +
+  labs(title = "Median Days to Trend by Language", x = "Language", y = "Days")
+```
+This plot displays the median number of days it takes for a video to trend, grouped by the language it's published in. We sort the bars to better observe which languages tend to trend faster. Languages like Russian (ru), Japanese (ja), and Korean (ko) show higher median values — suggesting videos in these languages tend to trend more slowly. On the contrary, languages with lower medians indicate faster trending, possibly due to higher digital activity or algorithmic priority in those regions.
+This analysis can help content creators target certain linguistic audiences if their goal is to trend quickly.
+
+### 2.3 Like/View Ratio vs. Days to Trend
+
+Objective: To analyze how the like-to-view ratio affects the time it takes for a video to trend.
+
+Why this matters: Engagement is a strong signal for virality. Videos with high like/view ratios may be seen as higher quality or more engaging, possibly accelerating their rise to trending.
+
+```{r}
+# Calculate engagement ratios
+data_clean <- data_clean %>%
+  mutate(
+    like_ratio = like_count / view_count,
+    comment_ratio = comment_count / view_count,
+  )
+
+# Correlation between like_ratio and days_to_trend
+ggplot(data_clean, aes(x = like_ratio, y = days_to_trend)) +
+  geom_point(alpha = 0.3, color = "#d62728") +
+  geom_smooth(method = "lm") +
+  labs(title = "Likes/Views Ratio vs. Days to Trend", x = "Like/View Ratio", y = "Days")
+```
+Here, we calculate the like/view ratio as a proxy for viewer engagement. This ratio is plotted against the number of days it took the video to trend. A linear regression line is also added to observe the overall trend.
+There is a noticeable negative correlation: videos with a higher like/view ratio tend to trend faster. This supports the idea that engagement quality matters more than just raw view counts.
+The regression line slopes downward, further confirming that better audience feedback (likes) relative to views helps videos gain trending momentum more quickly.
+
+### 2.4 Day of Publish vs. Days to Trend
+
+Objective: To identify whether publishing on specific days of the week affects how soon a video trends.
+
+Why this matters: YouTube user traffic may vary by day — for example, weekends might have higher user activity. Knowing this can help with timing strategy for releasing videos.
+
+```{r}
+# Add publish day of week
+data_clean <- data %>%
+  filter(!is.na(publish_date))
+
+# If it's "character", re-convert dates:
+data_clean <- data_clean %>%
+  mutate(
+    publish_date = as.Date(publish_date, format = "%Y-%m-%d")) %>%
+  mutate(publish_day = weekdays(publish_date))
+  
+# # Check the class of publish_date
+# class(data_clean$publish_date)  # Should return "Date"
+
+# Median days_to_trend by publish day
+day_summary <- data_clean %>%
+  group_by(publish_day) %>%
+  summarise(median_days = median(days_to_trend, na.rm = TRUE))
+
+table(data_clean$publish_day)
+
+ggplot(day_summary, aes(x = factor(publish_day, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")), y = median_days)) +
+  geom_bar(stat = "identity", fill = "#9467bd") +
+  labs(title = "Days to Trend by Publish Day", x = "Day", y = "Median Days")
+```
+
+We extract the day of the week from the video’s publish date and examine if it impacts the time taken to trend. Days are ordered from Monday to Sunday for a clean comparison.
+Interestingly, the median time to trend remains consistent across all days, around 5 days. This implies that publish timing does not significantly impact how quickly a video trends. It may indicate that content quality and engagement outweigh the influence of timing, at least when viewed from a weekly scale.
 
 ### 3. Outlier Identification
 
